@@ -1331,3 +1331,565 @@ public class AuthenticationController {
 1. _Tại sao phương thức `loadUserByUsername()` trong `UserDetailsService` chỉ nhận một tham số duy nhất là `String username` mà không nhận mật khẩu? Về mặt phân tách trách nhiệm kiến trúc, tại sao việc so sánh mật khẩu lại thuộc về `AuthenticationProvider` chứ không phải `UserDetailsService`?_
 
 2. _Khi người dùng hoàn tất đăng nhập thành công trên InstaClone, thuộc tính `credentials` (mật khẩu gốc) trong đối tượng `Authentication` được xử lý như thế nào trước khi lưu vào `SecurityContextHolder`? Việc giữ lại `credentials` trong bộ nhớ ứng dụng tiềm ẩn những rủi ro bảo mật nào?_
+
+---
+
+## CHƯƠNG 5: PHÂN QUYỀN ĐA TẦNG VỚI AUTHORIZATIONMANAGER & CHỐNG BOLA/IDOR
+
+### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
+
+#### Bài toán thực tế trên mạng xã hội InstaClone
+
+Sau khi hoàn thiện cơ chế xác thực danh tính ở Chương 4, hệ thống InstaClone đối mặt với một vấn đề nhức nhối: **Xác thực thành công không đồng nghĩa với việc có quyền thực hiện thao tác**.
+
+Xét tình huống nghiệp vụ:
+
+- Người dùng Bob (`ROLE_USER`) đăng nhập thành công vào InstaClone.
+
+- Alice (`ROLE_USER`) sở hữu một bài đăng riêng tư (`Post` có ID `105`, chế độ `PRIVATE`).
+
+- Bob mở công cụ Network trên trình duyệt hoặc Postman, gửi request:
+  `DELETE /api/v1/posts/105` hoặc `GET /api/v1/posts/105`
+
+Nếu hệ thống chỉ dựa vào phân quyền thô ở mức URL (Request-level) theo kiểu:
+
+```java
+.requestMatchers(HttpMethod.DELETE, "/api/v1/posts/**").hasRole("USER")
+
+```
+
+Lúc này, Spring Security kiểm tra thấy Bob có `ROLE_USER` nên cho phép request đi qua. Nếu tầng Service chỉ thực thi lệnh xóa đơn giản `postRepository.deleteById(105L)` mà không kiểm tra quyền sở hữu, Bob đã xóa sổ hoàn toàn dữ liệu của Alice!
+
+Đây chính là lỗ hổng bảo mật xếp vị trí số 1 trong OWASP API Security Top 10: **BOLA (Broken Object Level Authorization)**, hay còn gọi là **IDOR (Insecure Direct Object References)**.
+
+#### Câu hỏi tư duy trọng tâm
+
+> _Tại sao cơ chế phân quyền đường dẫn HTTP (Request-level Authorization) không bao giờ đủ để bảo vệ an toàn cho các ứng dụng định hướng dữ liệu (Data-driven Applications)? Kiến trúc `AuthorizationManager` trong Spring Security 7.x kết hợp cùng Spring AOP giải quyết bài toán phân quyền hạt mịn (Domain Object Security) như thế nào để triệt tiêu tận gốc lỗ hổng BOLA/IDOR?_
+
+---
+
+### 2. PHÂN TÍCH KIẾN TRÚC & CƠ CHẾ NỘI TẠI (UNDER THE HOOD)
+
+#### 2.1. Sự thay đổi đột phá trong Spring Security 7.x: Xóa bỏ AccessDecisionManager
+
+Trong các thế hệ trước (Spring Security 5.x trở về trước), việc phân quyền dựa trên một kiến trúc cồng kềnh gồm ba thành phần:
+
+- `FilterSecurityInterceptor`
+- `AccessDecisionManager` (với các chiến lược biểu quyết: `AffirmativeBased`, `ConsensusBased`, `UnanimousBased`)
+- `AccessDecisionVoter`
+
+Hệ thống cũ này sử dụng cơ chế biểu quyết phiếu bầu (Voting mechanism) rất phức tạp, khó mở rộng và tiêu tốn hiệu năng.
+
+**Kiến trúc thống nhất trong Spring Security 7.x:**
+Toàn bộ `AccessDecisionManager`, `AccessDecisionVoter` và `FilterSecurityInterceptor` đã **bị xóa bỏ hoàn toàn**. Mọi quyết định phân quyền từ mức URL đến Method đều được quy chuẩn hóa về giao diện duy nhất: **`AuthorizationManager<T>`**.
+
+```
+                          +-------------------------------------------------+
+                          |     <<interface>> AuthorizationManager<T>       |
+                          +-------------------------------------------------+
+                          | + authorize(Supplier<Authentication>, T object) |
+                          +-------------------------------------------------+
+                                                   ▲
+                                                   │ implements
+         ┌─────────────────────────────────────────┴─────────────────────────────────────────┐
+         │                                                                                   │
++------------------------------------+                             +------------------------------------+
+| RequestMatcherDelegating           |                             | AuthorityAuthorizationManager<T>   |
+| AuthorizationManager               |                             | (Kiểm tra ROLE_ hoặc Authority)    |
+| (Dùng cho tầng Request-level)      |                             +------------------------------------+
++------------------------------------+                                               ▲
+         ▲                                                                           │
+         │ Được kích hoạt bởi                                                        │ Được kích hoạt bởi
++------------------------------------+                             +------------------------------------+
+|       AuthorizationFilter          |                             | MethodSecurityInterceptor / AOP    |
+| (Thay thế FilterSecurityInterceptor|                             | (@PreAuthorize / @PostAuthorize)   |
++------------------------------------+                             +------------------------------------+
+
+```
+
+Phương thức cốt lõi duy nhất:
+
+```java
+AuthorizationDecision authorize(Supplier<Authentication> authentication, T object);
+
+```
+
+_(Lưu ý kiến trúc: Phương thức `check()` cũ đã bị loại bỏ hoàn toàn trong bản 7.0; mọi quyết định kiểm tra đều trả về đối tượng `AuthorizationDecision` chứa cờ `isGranted()`)_.
+
+#### 2.2. Phân định bản chất: `hasRole` vs `hasAuthority`
+
+Một nhầm lẫn kinh điển của lập trình viên là sử dụng lẫn lộn hai khái niệm này:
+
+- **`hasAuthority("STRING")`**: So khớp chính xác chuỗi ký tự nguyên bản trong danh sách `GrantedAuthority` của Principal. Ví dụ: `hasAuthority("POST_DELETE")` chỉ cấp quyền nếu User có đúng quyền `POST_DELETE`.
+
+- **`hasRole("STRING")`**: Tự động chèn thêm tiền tố **`ROLE_`** vào trước chuỗi cần kiểm tra. Khi khai báo `hasRole("ADMIN")`, Spring Security sẽ đối chiếu xem User có quyền `ROLE_ADMIN` hay không. Nếu trong database lưu `ADMIN` mà dùng `hasRole("ADMIN")`, hệ thống sẽ từ chối truy cập!
+
+#### 2.3. Cơ chế Phân quyền Phương thức (Method Security) qua Spring AOP Proxy
+
+Để giải quyết triệt để BOLA/IDOR, quyết định phân quyền phải được dời vào tầng Service nơi nắm giữ ngữ cảnh dữ liệu của Domain Entity. Spring Security sử dụng **Spring AOP (Aspect-Oriented Programming)** với annotation `@EnableMethodSecurity`.
+
+```
+[ Client Request: DELETE /api/v1/posts/105 ]
+                   │
+                   ▼ (Đã qua AuthorizationFilter: User hợp lệ)
+       [ DispatcherServlet ]
+                   │
+                   ▼
+       [ PostController ]
+                   │
+                   ▼ (Gọi postService.deletePost(105))
+ ┌───────────────────────────────────────────────────────────────┐
+ │                  Spring AOP Proxy Wrapper                     │
+ │                                                               │
+ │   1. Interceptor chặn method call (@PreAuthorize)             │
+ │   2. Trích xuất SpEL: "@postSecurity.isOwner(#postId, auth)"  │
+ │   3. Gọi PostSecurity Bean kiểm tra trong Database:           │
+ │      Post.getAuthor().getUsername() == auth.getName()         │
+ │                                                               │
+ │      [Quyền hợp lệ ?]                                         │
+ │         ├── YES ──> Chuyển tiếp tới PostServiceImpl thực thi  │
+ │         └── NO  ──> Ném AccessDeniedException (403 Forbidden) │
+ └───────────────────────────────────────────────────────────────┘
+
+```
+
+##### SpEL Operation Tracing trong Spring Framework 7
+
+Trong Spring Framework 7 và Spring Security 7.x, các biểu thức SpEL (Spring Expression Language) bên trong `@PreAuthorize` và `@PostAuthorize` được hỗ trợ tính năng **SpEL Operation Tracing**, cho phép ghi log chi tiết từng nhánh tính toán logic (ví dụ: đánh giá biểu thức `isOwner` ra `true` hay `hasRole` ra `false`), giúp việc kiểm toán bảo mật và debug trở nên trực quan.
+
+---
+
+### 3. MINH HỌA CODE CHUẨN MỰC TRÊN INSTACLONE
+
+Dưới đây là kiến trúc phân quyền đa tầng hoàn chỉnh cho InstaClone, kết hợp phân quyền URL và phân quyền dữ liệu chống BOLA/IDOR.
+
+#### 3.1. Kích hoạt Method Security chuẩn 7.x
+
+```java
+package com.instaclone.infrastructure.security.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+
+@Configuration
+@EnableMethodSecurity(prePostEnabled = true) // Kích hoạt @PreAuthorize, @PostAuthorize chuẩn 7.x
+public class MethodSecurityConfig {
+    // Spring Security 7.x tự động đăng ký các AuthorizationManager trước/sau phương thức
+}
+
+```
+
+#### 3.2. Cấu hình Phân quyền URL (Request-level)
+
+```java
+package com.instaclone.infrastructure.security.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class SecurityRoutingConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authorize -> authorize
+                // 1. Endpoint mở hoàn toàn cho bảng tin công khai
+                .requestMatchers(HttpMethod.GET, "/api/v1/feed/public/**").permitAll()
+
+                // 2. Endpoint chỉ dành cho Ban kiểm duyệt và Quản trị viên
+                .requestMatchers("/api/v1/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
+
+                // 3. Endpoint bài đăng yêu cầu phải đăng nhập (Bảo vệ tầng 1)
+                .requestMatchers("/api/v1/posts/**").authenticated()
+
+                // 4. Khóa tất cả các đường dẫn còn lại
+                .anyRequest().authenticated()
+            )
+            .httpBasic(Customizer.withDefaults());
+
+        return http.build();
+    }
+}
+
+```
+
+#### 3.3. Lớp Thẩm định Quyền Sở hữu Tài nguyên: `PostSecurityEvaluator` (Chống BOLA)
+
+```java
+package com.instaclone.infrastructure.security.evaluator;
+
+import com.instaclone.domain.entity.Post;
+import com.instaclone.domain.repository.PostRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component("postSecurity")
+public class PostSecurityEvaluator {
+
+    private static final Logger log = LoggerFactory.getLogger(PostSecurityEvaluator.class);
+    private final PostRepository postRepository;
+
+    public PostSecurityEvaluator(PostRepository postRepository) {
+        this.postRepository = postRepository;
+    }
+
+    /**
+     * Kiểm tra người dùng hiện tại có phải là tác giả của bài viết hay không.
+     * Được gọi trực tiếp từ SpEL: @postSecurity.isOwner(#postId, authentication)
+     */
+    @Transactional(readOnly = true)
+    public boolean isOwner(Long postId, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+
+        String currentUsername = authentication.getName();
+        Post post = postRepository.findById(postId).orElse(null);
+
+        if (post == null) {
+            // Không tìm thấy bài viết -> trả về true để Service xử lý ném lỗi 404 thay vì 403
+            return true;
+        }
+
+        boolean isAuthor = post.getAuthor().getUsername().equals(currentUsername);
+        log.debug("Checking ownership for post {}: user={}, isAuthor={}", postId, currentUsername, isAuthor);
+        return isAuthor;
+    }
+}
+
+```
+
+#### 3.4. Tầng Dịch vụ Áp dụng `@PreAuthorize` và `@PostAuthorize`
+
+```java
+package com.instaclone.application.service;
+
+import com.instaclone.domain.entity.Post;
+import com.instaclone.domain.repository.PostRepository;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class PostService {
+
+    private final PostRepository postRepository;
+
+    public PostService(PostRepository postRepository) {
+        this.postRepository = postRepository;
+    }
+
+    /**
+     * CHỐNG BOLA/IDOR KHI XÓA:
+     * Chỉ chủ sở hữu bài đăng HOẶC người có quyền MODERATOR mới được phép xóa.
+     */
+    @PreAuthorize("@postSecurity.isOwner(#postId, authentication) or hasRole('MODERATOR')")
+    @Transactional
+    public void deletePost(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("Post not found: " + postId));
+        postRepository.delete(post);
+    }
+
+    /**
+     * BẢO VỆ DỮ LIỆU ĐẦU RA VỚI @PostAuthorize:
+     * Cho phép method thực thi để lấy bài viết từ Database.
+     * Nhưng chỉ trả dữ liệu cho Client nếu:
+     * 1. Bài viết ở chế độ PUBLIC, HOẶC
+     * 2. Người gọi API chính là tác giả của bài viết (bảo vệ bài PRIVATE).
+     */
+    @PostAuthorize("returnObject.visibility.name() == 'PUBLIC' or returnObject.author.username == authentication.name")
+    @Transactional(readOnly = true)
+    public Post getPostDetail(Long postId) {
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("Post not found: " + postId));
+    }
+}
+
+```
+
+---
+
+### 4. BẪY LỖI KINH ĐIỂN & RỦI RO BẢO MẬT (GOTCHAS & PITFALLS)
+
+- **Bẫy 1: Gọi nội bộ phương thức (Self-Invocation) làm vô hiệu hóa `@PreAuthorize**`
+
+- _Hiện tượng:_ Phương thức `deletePost()` có khai báo `@PreAuthorize`. Nhưng khi một phương thức khác trong cùng `PostService` gọi `this.deletePost(id)`, việc kiểm tra quyền bị bỏ qua hoàn toàn, Bob vẫn xóa được bài của Alice!
+
+- _Nguyên nhân:_ Spring AOP tạo Proxy bọc bên ngoài Bean. Khi một phương thức bên ngoài gọi vào Bean, nó đi qua Proxy nên logic bảo vệ được kích hoạt. Tuy nhiên, khi gọi nội bộ thông qua từ khóa `this`, cuộc gọi diễn ra trực tiếp trên đối tượng thực thể bên trong mà không đi qua Proxy của Spring.
+
+- _Khắc phục:_ Tách phương thức cần bảo vệ sang một Bean/Service độc lập khác, hoặc tiêm lại chính Bean đó (Self-injection thông qua `@Lazy`).
+
+- **Bẫy 2: Ném mã lỗi 403 Forbidden thay vì 404 Not Found (Information Leakage)**
+- _Hiện tượng:_ Kẻ tấn công quét ID bài đăng từ 1 đến 10000. Nếu ID nào trả về `403 Forbidden`, kẻ tấn công biết ngay bài đăng đó có tồn tại trên hệ thống (chỉ là họ không có quyền xem). Nếu ID trả về `404 Not Found`, bài viết đó không tồn tại.
+- _Nguyên nhân:_ Biểu thức `@PreAuthorize` từ chối truy cập ngay trước khi Service kiểm tra sự tồn tại của thực thể trong Database.
+- _Khắc phục:_ Với các tài nguyên nhạy cảm cần ẩn giấu sự tồn tại, thiết kế để trả về mã lỗi `404 Not Found` thống nhất cho cả hai trường hợp: không tìm thấy hoặc không có quyền xem.
+
+- **Bẫy 3: Sử dụng `@PostAuthorize` cho các thao tác làm thay đổi trạng thái (State-changing Operations)**
+- _Hiện tượng:_ Đặt `@PostAuthorize` trên hàm cập nhật bài viết hoặc xóa dữ liệu.
+- _Hệ quả:_ `@PostAuthorize` chỉ kiểm tra quyền **sau khi** phương thức đã thực thi xong. Nghĩa là câu lệnh `UPDATE` hoặc `DELETE` đã được ghi vào Database trước khi Spring Security ném ra `AccessDeniedException`! Dữ liệu đã bị phá hủy dù Client nhận lỗi 403.
+- _Khắc phục:_ `@PostAuthorize` **chỉ được dùng cho các thao tác đọc (`SELECT`)**. Mọi thao tác sửa đổi dữ liệu bắt buộc phải dùng `@PreAuthorize`.
+
+---
+
+### 5. BỘ CÂU HỎI TƯ DUY & PHẢN BIỆN (DEEP-DIVE QUESTIONS)
+
+1. _Dưới góc độ kiến trúc Proxy của Spring AOP, hãy giải thích tại sao đặt `@PreAuthorize` trên một phương thức có modifier là `private` hoặc `protected` lại không có tác dụng bảo vệ? Để bảo vệ các phương thức này ta phải sử dụng giải pháp nào (gợi ý: AspectJ bytecode weaving)?_
+
+2. _Phân tích chi phí hiệu năng (Performance Cost) của việc sử dụng SpEL trong `@PreAuthorize` khi hệ thống InstaClone chịu tải 100,000 request/giây. Việc truy vấn Database bên trong `PostSecurityEvaluator.isOwner()` có thể tối ưu hóa bằng cách nào (gợi ý: Second-level Cache hoặc nhúng thông tin Ownership vào Token)?_
+
+---
+
+---
+
+## CHƯƠNG 6: QUẢN LÝ SESSION & PHÒNG THỦ LỖ HỔNG WEB (CSRF, CORS, HEADERS)
+
+### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
+
+#### Bài toán thực tế trên mạng xã hội InstaClone
+
+InstaClone mở rộng nền tảng hỗ trợ cả giao diện Web trên trình duyệt (sử dụng React/Angular) giao tiếp với Backend REST API. Để duy trì đăng nhập, hệ thống sử dụng Cookie chứa Session ID (`JSESSIONID`).
+
+Lúc này, hai nguy cơ bảo mật nghiêm trọng xuất hiện:
+
+1. **Kịch bản tấn công CSRF (Cross-Site Request Forgery):**
+
+- Người dùng Charlie đăng nhập vào InstaClone trên trình duyệt. Cookie phiên làm việc được lưu tự động trong trình duyệt.
+
+- Kẻ tấn công lừa Charlie bấm vào một liên kết độc hại trên trang web `evil-giveaway.com`.
+- Trang web độc này ngầm kích hoạt một form ẩn gửi request:
+  `POST [https://api.instaclone.com/api/v1/posts/105/comments](https://api.instaclone.com/api/v1/posts/105/comments)` với nội dung quảng cáo rác, hoặc nguy hiểm hơn là gửi `POST /api/v1/users/me/delete`.
+
+- Vì request gửi tới domain của InstaClone, **trình duyệt tự động đính kèm Cookie `JSESSIONID` của Charlie vào request!** Backend InstaClone thấy Cookie hợp lệ nên xử lý request mà không hay biết hành vi này không hề xuất phát từ ý chí của Charlie.
+
+2. **Kịch bản tấn công Session Fixation (Cố định phiên):**
+
+- Kẻ tấn công chủ động khởi tạo một Session ID trên InstaClone, sau đó tìm cách cài Session ID này vào trình duyệt của nạn nhân (thông qua XSS hoặc gửi link bẫy).
+- Khi nạn nhân đăng nhập thành công bằng tài khoản của mình, nếu Backend vẫn giữ nguyên Session ID cũ đó, kẻ tấn công lập tức chiếm đoạt phiên làm việc của nạn nhân mà không cần biết mật khẩu.
+
+#### Câu hỏi tư duy trọng tâm
+
+> _Tại sao trình duyệt lại tự động gửi Cookie kèm theo các Cross-Site Request, tạo điều kiện cho tấn công CSRF xảy ra? Bản chất khác biệt khiến Stateless JWT (qua Header Authorization) miễn nhiễm với CSRF nhưng Cookie-based Authentication bắt buộc phải bật CSRF là gì? Và cơ chế XOR Token Masking trong Spring Security 7.x ngăn chặn tấn công trích xuất thông tin BREACH như thế nào?_
+
+---
+
+### 2. PHÂN TÍCH KIẾN TRÚC & CƠ CHẾ NỘI TẠI (UNDER THE HOOD)
+
+#### 2.1. Bản chất cơ chế phòng chống CSRF trong Spring Security 7.x
+
+CSRF khai thác cơ chế ngầm định của trình duyệt: **Tự động gửi Cookie tương ứng với domain đích**.
+Để chống lại CSRF, hệ thống áp dụng kỹ thuật **Synchronizer Token Pattern**:
+
+- Server sinh ra một giá trị bí mật ngẫu nhiên, khó đoán gọi là **CSRF Token**.
+
+- Khác với Cookie, CSRF Token **không bao giờ được trình duyệt tự động gửi đi**. Ứng dụng Client (Frontend) bắt buộc phải đọc Token này và tự tay nhúng nó vào Header HTTP (thường là `X-XSRF-TOKEN`) hoặc tham số của Form cho các thao tác làm thay đổi trạng thái hệ thống (`POST`, `PUT`, `DELETE`, `PATCH`).
+
+```
+               [ Trình duyệt / Client ]                        [ Backend InstaClone ]
+                           │                                              │
+ 1. Đăng nhập thành công   │ ───────────────────────────────────────────> │
+                           │ <── Trả Cookie (JSESSIONID) & CSRF Token ─── │
+                           │                                              │
+ 2. Kẻ tấn công lừa gửi    │                                              │
+    Request POST ngầm      │ ── POST /api/v1/posts ─────────────────────> │
+                           │    Cookie: JSESSIONID (Tự đính kèm)          │
+                           │    (KHÔNG CÓ CSRF Token trong Header!)       │
+                           │                                              │
+                           │                                              │ ──> [ CsrfFilter chặn lại ]
+                           │                                              │     Token bị thiếu/sai
+                           │ <── 403 Forbidden (CSRF Token Missing) ───── │
+
+```
+
+##### Chống tấn công BREACH với `XorCsrfTokenRequestAttributeHandler`
+
+- _Tấn công BREACH:_ Kẻ tấn công có thể đoán được CSRF Token trên đường truyền mã hóa HTTPS nếu server bật tính năng nén HTTP (Gzip/Brotli), bằng cách quan sát sự thay đổi kích thước của các gói tin nén khi chèn các ký tự phỏng đoán.
+- _Giải pháp trên Spring Security 7.x:_ Mặc định sử dụng **`XorCsrfTokenRequestAttributeHandler`**. Mỗi lần trả CSRF Token về cho Client, Spring Security sẽ sinh một chuỗi ngẫu nhiên (One-time Pad) và thực hiện phép toán bit `XOR` với CSRF Token gốc. Kết quả là giá trị chuỗi Token trả về ở mỗi request luôn thay đổi ngẫu nhiên, vô hiệu hóa hoàn toàn kỹ thuật phân tích kích thước gói tin của cuộc tấn công BREACH.
+
+#### 2.2. Chiến lược Quản lý Session & Session Fixation Protection
+
+Khi người dùng đăng nhập thành công, Spring Security 7.x cung cấp các cơ chế kiểm soát phiên:
+
+1. **`changeSessionId()` (Chiến lược mặc định):** Giữ nguyên dữ liệu Session nhưng yêu cầu Servlet Container sinh một `JSESSIONID` hoàn toàn mới gán cho người dùng. Kẻ tấn công nắm Session ID cũ sẽ bị đá ra ngoài ngay lập tức.
+
+2. **Concurrent Session Control:** Giới hạn số lượng phiên hoạt động đồng thời của một tài khoản người dùng trên InstaClone. Khi vượt ngưỡng, hệ thống có thể từ chối đăng nhập mới hoặc vô hiệu hóa (expire) phiên đăng nhập cũ nhất.
+
+#### 2.3. Ranh giới CORS (Cross-Origin Resource Sharing)
+
+CORS là cơ chế an ninh do **trình duyệt thực thi** nhằm ngăn không cho mã JavaScript ở một nguồn (Origin A) đọc dữ liệu nhạy cảm từ một nguồn khác (Origin B) nếu không được phép.
+
+- **Preflight Request (`OPTIONS`):** Trước khi gửi các request phức tạp (chứa header tùy biến hoặc method `PUT`/`DELETE`), trình duyệt tự động gửi trước một request `OPTIONS` để hỏi Server xem có cho phép Origin này giao tiếp hay không.
+
+- **Thứ tự của `CorsFilter`:** `CorsFilter` bắt buộc phải được xử lý **trước** các bộ lọc xác thực và phân quyền của Spring Security. Nếu không, các request `OPTIONS` chưa có thông tin đăng nhập sẽ bị `AuthorizationFilter` chặn lại với mã lỗi `401/403` trước khi trình duyệt nhận được CORS Header!
+
+#### 2.4. Bắt buộc kết nối an toàn HTTPS trong 7.x
+
+Trong Spring Security 7.0, cấu hình cũ `http.requiresChannel()` đã **bị xóa bỏ**. Thay vào đó, chuẩn cấu hình mới để ép buộc chuyển hướng toàn bộ kết nối không an toàn (HTTP) sang kết nối mã hóa (HTTPS) là **`http.redirectToHttps(Customizer.withDefaults())`**.
+
+---
+
+### 3. MINH HỌA CODE CHUẨN MỰC TRÊN INSTACLONE
+
+Dưới đây là cấu hình hoàn chỉnh cho hệ thống Web của InstaClone bao gồm bảo vệ Session, phòng chống CSRF, cấu hình CORS và HTTPS chuẩn Spring Security 7.x.
+
+#### 3.1. Cấu hình Toàn diện: CSRF, Session, CORS & HTTPS
+
+```java
+package com.instaclone.infrastructure.security.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+@Configuration
+@EnableWebSecurity
+public class WebDefenseSecurityConfig {
+
+    @Bean
+    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+        // Cấu hình Handler xử lý CSRF Token với kỹ thuật Masking XOR chống BREACH
+        XorCsrfTokenRequestAttributeHandler requestHandler = new XorCsrfTokenRequestAttributeHandler();
+        requestHandler.setCsrfRequestAttributeName("_csrf");
+
+        http
+            // 1. Ép buộc chuyển hướng HTTP sang HTTPS chuẩn Spring Security 7.x
+            .redirectToHttps(Customizer.withDefaults())
+
+            // 2. Cấu hình chia sẻ tài nguyên nguồn gốc chéo (CORS)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+            // 3. Phòng thủ CSRF cho ứng dụng Web có sử dụng Cookie
+            .csrf(csrf -> csrf
+                // Lưu CSRF Token trong Cookie mà JavaScript Client có thể đọc được (HttpOnly = false)
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(requestHandler)
+                // Bỏ qua kiểm tra CSRF cho các API công khai của bên thứ ba (Webhooks)
+                .ignoringRequestMatchers("/api/v1/webhooks/**")
+            )
+
+            // 4. Quản lý Session và chống tấn công cố định phiên
+            .sessionManagement(session -> session
+                // Tạo mới Session ID sau khi người dùng đăng nhập thành công
+                .sessionFixation(fixation -> fixation.changeSessionId())
+                // Giới hạn tối đa 2 thiết bị đăng nhập đồng thời cho mỗi tài khoản
+                .maximumSessions(2)
+                .maxSessionsPreventsLogin(false) // Đá phiên cũ nhất khi thiết bị thứ 3 đăng nhập
+            )
+
+            // 5. Cấu hình các Header an ninh chuẩn OWASP
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.deny()) // Chống Clickjacking
+                .xssProtection(Customizer.withDefaults())
+            )
+
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/feed/public/**", "/api/v1/csrf/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .httpBasic(Customizer.withDefaults());
+
+        return http.build();
+    }
+
+    /**
+     * Cấu hình CORS chặt chẽ: Chỉ cho phép Frontend chính thức của InstaClone kết nối.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Tuyệt đối không dùng "*" khi allowCredentials = true
+        configuration.setAllowedOrigins(List.of("https://instaclone.com", "https://app.instaclone.com"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN"));
+        configuration.setExposedHeaders(List.of("X-XSRF-TOKEN"));
+        configuration.setAllowCredentials(true); // Cho phép truyền Cookie / Credentials
+        configuration.setMaxAge(3600L); // Cache kết quả Preflight trong 1 giờ
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}
+
+```
+
+#### 3.2. REST Endpoint Cung cấp CSRF Token cho Single Page Application (SPA)
+
+Để ứng dụng Single Page App (React/Angular) chủ động lấy CSRF Token khi khởi tạo:
+
+```java
+package com.instaclone.presentation.controller;
+
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/csrf")
+public class CsrfController {
+
+    /**
+     * Endpoint trả về CSRF Token.
+     * Spring Security tự động nạp đối tượng CsrfToken vào tham số của Controller.
+     */
+    @GetMapping("/token")
+    public CsrfToken getCsrfToken(CsrfToken token) {
+        // Trả về JSON chứa: parameterName, headerName, token (đã được XOR mask)
+        return token;
+    }
+}
+
+```
+
+---
+
+### 4. BẪY LỖI KINH ĐIỂN & RỦI RO BẢO MẬT (GOTCHAS & PITFALLS)
+
+- **Bẫy 1: Tắt bừa bãi CSRF (`csrf -> csrf.disable()`) khi ứng dụng dùng Cookie lưu trữ danh tính**
+
+- _Hiện tượng:_ Lập trình viên gặp lỗi 403 khi gọi API `POST`, tìm kiếm trên mạng thấy hướng dẫn tắt CSRF và áp dụng ngay vào dự án mà không hiểu bản chất.
+
+- _Hệ quả:_ Toàn bộ người dùng InstaClone bị đặt vào trạng thái dễ bị tổn thương trước tấn công CSRF. Bất kỳ trang web độc hại nào cũng có thể ép trình duyệt của nạn nhân thực hiện các hành động nguy hiểm.
+
+- _Khắc phục:_ **Chỉ tắt CSRF khi ứng dụng là hoàn toàn Stateless REST API** (nghĩa là mọi request đều truyền Bearer Token qua Header và Server hoàn toàn không dựa vào bất kỳ Cookie nào để nhận diện phiên làm việc). Nếu còn dùng Cookie để nhận diện người dùng, CSRF là yêu cầu sống còn bắt buộc phải bật.
+
+- **Bẫy 2: Cấu hình `allowedOrigins("*")` kết hợp `allowCredentials(true)` trong CORS**
+- _Hiện tượng:_ Trình duyệt ném lỗi CORS trên console và từ chối xử lý dữ liệu trả về từ Server:
+  _`The value of the 'Access-Control-Allow-Origin' header in the response must not be the wildcard '_' when the request's credentials mode is 'include'.`\*
+- _Nguyên nhân:_ Đặc tả kỹ thuật bảo mật của W3C/WHATWG cấm tuyệt đối việc sử dụng ký tự đại diện `*` nếu Server chấp nhận truyền kèm Cookie/Credentials. Điều này nhằm bảo vệ người dùng không bị rò rỉ dữ liệu phiên sang các trang web bất kỳ.
+
+- _Khắc phục:_ Luôn chỉ định danh sách rõ ràng các Domain tin cậy thông qua `setAllowedOrigins(...)` khi bật `allowCredentials(true)`.
+
+- **Bẫy 3: Gặp lỗi 403 Forbidden trên Preflight Request (`OPTIONS`)**
+- _Hiện tượng:_ Trình duyệt gửi request `OPTIONS` trước khi gọi `DELETE /api/v1/posts/105`, nhưng Server phản hồi ngay `403 Forbidden` khiến toàn bộ thao tác bị hủy bỏ.
+- _Nguyên nhân:_ Tự tạo một bộ lọc CORS thông thường nhưng đặt sai vị trí (chạy sau Spring Security), hoặc không cấu hình `http.cors()` khiến `AuthorizationFilter` coi request `OPTIONS` là một request chưa xác thực và từ chối phục vụ.
+- _Khắc phục:_ Luôn cấu hình CORS thông qua DSL chuẩn `http.cors(cors -> cors.configurationSource(...))` để Spring Security tự động tích hợp `CorsFilter` vào vị trí ưu tiên cao nhất trong chuỗi lọc, tự động cho phép các Preflight Request đi qua an toàn.
+
+---
+
+### 5. BỘ CÂU HỎI TƯ DUY & PHẢN BIỆN (DEEP-DIVE QUESTIONS)
+
+1. _Một kỹ sư an ninh nhận định: "Vì chúng ta đã cấu hình CORS chặt chẽ, chỉ cho phép Origin `[https://instaclone.com](https://instaclone.com)`, nên ứng dụng của chúng ta đã miễn nhiễm với tấn công CSRF và có thể tắt CSRF Filter". Lập luận này đúng hay sai? Hãy phân tích sự khác nhau về bản chất và mục đích bảo vệ giữa CORS và CSRF._
+
+2. _Tại sao một REST API hoàn toàn Stateless sử dụng JWT gửi qua Header `Authorization: Bearer <token>` lại không bị tấn công CSRF, trong khi nếu lưu chính JWT đó vào một `HttpOnly` Cookie thì ứng dụng lại ngay lập tức đối mặt với nguy cơ bị tấn công CSRF?_
