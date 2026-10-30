@@ -1893,3 +1893,698 @@ public class CsrfController {
 1. _Một kỹ sư an ninh nhận định: "Vì chúng ta đã cấu hình CORS chặt chẽ, chỉ cho phép Origin `[https://instaclone.com](https://instaclone.com)`, nên ứng dụng của chúng ta đã miễn nhiễm với tấn công CSRF và có thể tắt CSRF Filter". Lập luận này đúng hay sai? Hãy phân tích sự khác nhau về bản chất và mục đích bảo vệ giữa CORS và CSRF._
 
 2. _Tại sao một REST API hoàn toàn Stateless sử dụng JWT gửi qua Header `Authorization: Bearer <token>` lại không bị tấn công CSRF, trong khi nếu lưu chính JWT đó vào một `HttpOnly` Cookie thì ứng dụng lại ngay lập tức đối mặt với nguy cơ bị tấn công CSRF?_
+
+---
+
+## CHƯƠNG 7: KIẾN TRÚC STATELESS REST API & XÁC THỰC JWT RESOURCE SERVER
+
+### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
+
+#### Bài toán thực tế trên mạng xã hội InstaClone
+
+Khi InstaClone mở rộng quy mô từ một máy chủ đơn lẻ lên cụm phân tán gồm hàng chục microservices (Post Service, Media Service, Comment Service, Feed Service) phục vụ đồng thời hàng triệu ứng dụng Mobile (iOS/Android) và Web Client, kiến trúc dựa trên Stateful Session (`JSESSIONID`) bộc lộ các nút thắt cổ chai nghiêm trọng:
+
+- **Chi phí đồng bộ phiên làm việc (Session Replication Bottleneck):** Việc duy trì cụm Redis tập trung chỉ để tra cứu session cho mỗi request tạo ra độ trễ mạng (Network I/O) và biến Redis thành điểm nghẽn chịu lỗi duy nhất (Single Point of Failure).
+- **Trở ngại đa nền tảng:** Các thiết bị Mobile app không quản lý Cookie tự nhiên như trình duyệt web, đòi hỏi một định dạng token nhỏ gọn, độc lập và dễ nhúng vào các giao thức truyền tải chuẩn.
+
+Để giải quyết, InstaClone chuyển đổi sang kiến trúc **Stateless Authentication** sử dụng JWT (JSON Web Token). Tuy nhiên, nhiều lập trình viên khi triển khai thường mắc các sai lầm tai hại:
+
+1. Tự viết Filter để cắt chuỗi Bearer token, giải mã Base64 thủ công rồi tra cứu lại database ở mỗi request (triệt tiêu hoàn toàn lợi thế Stateless của JWT).
+2. Lưu trữ dữ liệu nhạy cảm (mật khẩu, quyền hạn chi tiết chưa kiểm soát) trực tiếp vào Payload của JWT vì lầm tưởng JWT có tính năng che giấu dữ liệu.
+
+3. Đặt thời hạn sống của Access Token quá dài (30 ngày) mà không có cơ chế thu hồi, biến token bị rò rỉ thành một "chìa khóa vạn năng" không thể vô hiệu hóa.
+
+#### Câu hỏi tư duy trọng tâm
+
+> Làm thế nào một máy chủ Resource Server có thể xác thực và tin tưởng tuyệt đối vào thông tin danh tính cùng quyền hạn nằm bên trong một chuỗi JWT mà KHÔNG CẦN truy vấn Database hay bất kỳ hệ thống lưu trữ phân tán nào (Stateless Verification)? Cơ chế hoạt động của bộ đôi Access Token ngắn hạn và Refresh Token giải quyết bài toán cân bằng giữa hiệu năng và khả năng thu hồi quyền như thế nào?
+
+---
+
+### 2. PHÂN TÍCH KIẾN TRÚC & CƠ CHẾ NỘI TẠI (UNDER THE HOOD)
+
+#### 2.1. Cấu trúc và Bản chất Ký số của JWT
+
+Một JSON Web Token bao gồm 3 phần riêng biệt được ngăn cách bởi dấu chấm (`.`):
+
+$$\text{JWT} = \text{Base64URL}(\text{Header}) \,.\, \text{Base64URL}(\text{Payload}) \,.\, \text{Base64URL}(\text{Signature})$$
+
+```
+  eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjdW9uZyIsImF1dGgiOiJST0xFX1VTRVIiLCJleHAiOjE3MzAyOTAwMDB9.dBjftJeZ...
+  ├───────────────────────────────────┤ ├─────────────────────────────────────────────────────────────┤ ├──────────────┤
+               Header                                              Payload                                  Signature
+
+```
+
+- **Header:** Chứa thuật toán ký (`alg`: `RS256`, `ES256`, hoặc `HS256`) và loại token (`typ`: `JWT`).
+- **Payload (Claims):** Chứa dữ liệu danh tính đã thỏa thuận:
+
+- Registered Claims: `sub` (Subject/Username), `iss` (Issuer), `exp` (Expiration Time), `iat` (Issued At).
+
+- Custom Claims: `roles`, `scope`, `userId`.
+  _(Cảnh báo: Payload chỉ được mã hóa Base64URL để truyền tải, bất kỳ ai có token đều đọc được nội dung; JWT hoàn toàn không có cơ chế che giấu dữ liệu)_.
+
+- **Signature (Chữ ký số):** Được tạo ra bằng cách lấy $(\text{Header} + "." + \text{Payload})$ băm qua thuật toán mật mã học kết hợp với khóa bí mật:
+
+$$\text{Signature} = \text{Sign}_{K_{private}}(\text{Base64URL}(\text{Header}) + "." + \text{Base64URL}(\text{Payload}))$$
+
+##### Bản chất của Xác thực Bất đối xứng (Asymmetric Signing - RSA/ECDSA)
+
+Trong hệ thống InstaClone chuẩn doanh nghiệp:
+
+- **Authorization Server** nắm giữ **Private Key** để ký phát hành token.
+- Các **Resource Server** (Post Service, Comment Service) chỉ cần lưu giữ **Public Key** tương ứng.
+
+- Khi nhận token, Resource Server chỉ cần dùng Public Key để kiểm chứng chữ ký: nếu chữ ký khớp, điều đó khẳng định chắc chắn 100% rằng dữ liệu trong Payload không bị chỉnh sửa giả mạo trên đường truyền và token thực sự do chính chủ phát hành, từ đó cho phép thực thi request mà không cần gọi ngược về Authorization Server hay Database!
+
+#### 2.2. Luồng Xử lý OAuth2 Resource Server trong Spring Security 7.x
+
+Khi sử dụng thư viện chuẩn `spring-boot-starter-oauth2-resource-server`, Spring Security kích hoạt một chuỗi xử lý tinh gọn:
+
+```
+[ Client Request: GET /api/v1/posts ]
+  Header: "Authorization: Bearer <JWT_STRING>"
+                  │
+                  ▼
+   ┌───────────────────────────────────────────────┐
+   │         BearerTokenAuthenticationFilter       │ Trích xuất chuỗi token từ Header "Authorization"[cite: 1]
+   └──────────────────────┬────────────────────────┘
+                          │
+                          ▼ Gọi authenticationManager.authenticate(new BearerTokenAuthenticationToken(token))
+   ┌───────────────────────────────────────────────┐
+   │          JwtAuthenticationProvider            │ Thực thi xác thực và ánh xạ quyền[cite: 1]
+   └──────────────────────┬────────────────────────┘
+                          │
+         ┌────────────────┴────────────────────────┐
+         │ 1. Giải mã & kiểm tra tính toàn vẹn     │ 2. Chuyển đổi Claims sang GrantedAuthority
+         ▼                                         ▼
+   ┌───────────────────────┐             ┌───────────────────────────────────┐
+   │      JwtDecoder       │             │    JwtAuthenticationConverter     │
+   │ (Kiểm tra chữ ký, exp,│             │ (Ánh xạ Claim "roles" hoặc        │
+   │  iss, và "typ" header)│             │  "scope" thành List<Authority>)   │
+   └───────────────────────┘             └───────────────────────────────────┘
+                          │                                         │
+                          └───────────────────┬─────────────────────┘
+                                              │
+                                              ▼ Trả về JwtAuthenticationToken (isAuthenticated = true)
+   ┌────────────────────────────────────────────────────────────────────────┐
+   │  SecurityContextHolder.getContext().setAuthentication(jwtAuthToken)    │ Lưu vào Context luồng
+   └────────────────────────────────────────────────────────────────────────┘
+
+```
+
+1. **`BearerTokenAuthenticationFilter`:** Lọc request, nhận diện tiền tố `Bearer `, tách lấy chuỗi token thô.
+
+2. **`JwtDecoder`:** Thực hiện:
+
+- Kiểm tra định dạng cấu trúc token.
+- Xác thực chữ ký số bằng Public Key (hoặc JWK Set Endpoint).
+
+- Kiểm tra tính hợp lệ về thời gian (`exp` chưa hết hạn, `nbf` đã có hiệu lực, cho phép độ trễ đồng hồ hệ thống `clockSkew` mặc định 60 giây).
+
+- **Chuẩn hóa Spring Security 7.x:** Thực thi thẩm định bắt buộc thuộc tính `typ` trong Header (thường phải là `JWT` hoặc `at+jwt`) để chống lại kiểu tấn công hoán đổi loại token (Token Type Confusion Attack).
+
+3. **`JwtAuthenticationConverter`:** Trích xuất các Claim từ đối tượng `Jwt` đã giải mã để tạo ra danh sách các `GrantedAuthority` (mặc định map từ claim `scope` hoặc `scp`, nhưng có thể tùy biến sang mảng `roles` của InstaClone).
+
+#### 2.3. Quản lý Vòng đời Token: Cặp đôi Access Token / Refresh Token & Thu hồi Token
+
+- **Access Token:** Mang tính chất Stateless, thời gian sống rất ngắn (ví dụ: 15 phút). Được gửi kèm trong mỗi request.
+
+- **Refresh Token:** Lưu trữ an toàn tại Server (Redis/Database), thời gian sống dài (ví dụ: 7 ngày hoặc 30 ngày). Chỉ được gửi đến endpoint duy nhất `/api/v1/auth/refresh` để xin cấp lại cặp Access Token mới.
+
+- **Chiến lược Thu hồi (Token Revocation/Blacklist với Redis):**
+  Khi người dùng InstaClone bấm _"Đăng xuất khỏi mọi thiết bị"_:
+
+1. Xóa toàn bộ Refresh Token của người dùng trong cơ sở dữ liệu.
+2. Để vô hiệu hóa ngay lập tức Access Token hiện tại (vẫn còn hạn vài phút), Server đẩy định danh `jti` (JWT ID) của token vào Redis Blacklist với thời gian sống (TTL) bằng đúng thời gian còn lại của token. Resource Server kiểm tra nhanh trong Redis (in-memory, $O(1)$) để từ chối các token nằm trong blacklist.
+
+---
+
+### 3. MINH HỌA CODE CHUẨN MỰC TRÊN INSTACLONE
+
+Dưới đây là mã nguồn xây dựng Resource Server xác thực JWT và dịch vụ phát hành token cho InstaClone trên nền tảng Java 21, Spring Boot 4.x và Spring Security 7.x.
+
+#### 3.1. Cấu hình Cặp Khóa RSA (RSA Key Pair Generator / Loader)
+
+Trong môi trường Production, khóa bí mật được nạp từ tệp PEM hoặc Vault/KMS. Dưới đây là cấu hình Spring Bean quản lý cặp khóa RSA:
+
+```java
+package com.instaclone.infrastructure.security.config;
+
+import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.UUID;
+
+@Configuration
+public class JwtCryptographyConfig {
+
+    private final KeyPair rsaKeyPair;
+
+    public JwtCryptographyConfig() {
+        this.rsaKeyPair = generateRsaKeyPair();
+    }
+
+    private static KeyPair generateRsaKeyPair() {
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(2048);
+            return keyPairGenerator.generateKeyPair();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to generate RSA Key Pair", ex);
+        }
+    }
+
+    @Bean
+    public RSAPublicKey rsaPublicKey() {
+        return (RSAPublicKey) rsaKeyPair.getPublic();
+    }
+
+    @Bean
+    public RSAPrivateKey rsaPrivateKey() {
+        return (RSAPrivateKey) rsaKeyPair.getPrivate();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder(RSAPublicKey rsaPublicKey) {
+        // Cấu hình JwtDecoder với Public Key để Resource Server kiểm chứng chữ ký
+        return NimbusJwtDecoder.withPublicKey(rsaPublicKey).build();
+    }
+
+    @Bean
+    public JwtEncoder jwtEncoder(RSAPublicKey rsaPublicKey, RSAPrivateKey rsaPrivateKey) {
+        JWK jwk = new RSAKey.Builder(rsaPublicKey)
+                .privateKey(rsaPrivateKey)
+                .keyID(UUID.randomUUID().toString())
+                .build();
+        JWKSource<SecurityContext> jwkSource = new ImmutableJWKSet<>(new JWKSet(jwk));
+        return new NimbusJwtEncoder(jwkSource);
+    }
+}
+
+```
+
+#### 3.2. Cấu hình Chuỗi Lọc Resource Server với Chuyển đổi Claim
+
+```java
+package com.instaclone.infrastructure.security.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+@EnableWebSecurity
+public class JwtSecurityConfig {
+
+    @Bean
+    public SecurityFilterChain jwtSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            // 1. TẮT CSRF vì đây là kiến trúc hoàn toàn Stateless REST API (Không dùng Session Cookie)
+            .csrf(csrf -> csrf.disable())
+
+            // 2. Ép buộc chính sách không lưu trạng thái (STATELESS)
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // 3. Phân quyền đường dẫn URL
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/feed/public/**").permitAll()
+                .requestMatchers("/api/v1/moderation/**").hasRole("MODERATOR")
+                .anyRequest().authenticated()
+            )
+
+            // 4. Kích hoạt OAuth2 Resource Server xử lý Bearer Token
+            .oauth2ResourceServer(oauth2 -> oauth2
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+            );
+
+        return http.build();
+    }
+
+    /**
+     * Tùy biến JwtAuthenticationConverter để ánh xạ claim custom "roles" trong JWT
+     * thành danh sách các SimpleGrantedAuthority có tiền tố ROLE_
+     */
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        // Chỉ định claim chứa danh sách role
+        grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
+        // Giữ nguyên tiền tố ROLE_ đã gắn sẵn trong token
+        grantedAuthoritiesConverter.setAuthorityPrefix("");
+
+        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
+        jwtConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
+        return jwtConverter;
+    }
+}
+
+```
+
+#### 3.3. Dịch vụ Phát hành và Quản lý Vòng đời Token (`JwtTokenService`)
+
+```java
+package com.instaclone.infrastructure.security.service;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class JwtTokenService {
+
+    private final JwtEncoder jwtEncoder;
+
+    public JwtTokenService(JwtEncoder jwtEncoder) {
+        this.jwtEncoder = jwtEncoder;
+    }
+
+    /**
+     * Phát hành Stateless Access Token ngắn hạn (15 phút)
+     */
+    public String generateAccessToken(Authentication authentication, Long userId) {
+        Instant now = Instant.now();
+        List<String> roles = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .id(UUID.randomUUID().toString()) // jti: JWT ID (dùng cho blacklist nếu cần)
+                .issuer("https://api.instaclone.com")
+                .issuedAt(now)
+                .expiresAt(now.plus(15, ChronoUnit.MINUTES)) // Sống 15 phút
+                .subject(authentication.getName())
+                .claim("userId", userId)
+                .claim("roles", roles)
+                .build();
+
+        return this.jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+    }
+}
+
+```
+
+---
+
+### 4. BẪY LỖI KINH ĐIỂN & RỦI RO BẢO MẬT (GOTCHAS & PITFALLS)
+
+- **Bẫy 1: Không chuyển đổi `SessionCreationPolicy.STATELESS` dẫn đến rò rỉ phiên**
+- _Hiện tượng:_ Ứng dụng đã dùng Bearer Token nhưng Spring Security vẫn âm thầm sinh header `Set-Cookie: JSESSIONID=...` trả về cho Client, gây lãng phí bộ nhớ của Web Server.
+- _Nguyên nhân:_ Không thiết lập `sessionCreationPolicy(SessionCreationPolicy.STATELESS)`. Mặc định Spring Security vẫn giữ trạng thái `ALWAYS` hoặc `IF_REQUIRED`.
+
+- _Khắc phục:_ Luôn cấu hình tường minh `.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))` trong `SecurityFilterChain`.
+
+- **Bẫy 2: Nhầm lẫn giữa mã `scp` mặc định và Claim tùy biến của ứng dụng**
+- _Hiện tượng:_ Token chứa claim `"roles": ["ROLE_USER", "ROLE_MODERATOR"]`, nhưng khi gọi method có `@PreAuthorize("hasRole('MODERATOR')")` thì luôn bị lỗi `403 Forbidden`.
+
+- _Nguyên nhân:_ Mặc định `JwtAuthenticationConverter` chỉ đọc claim có tên `scope` hoặc `scp`, và tự động thêm tiền tố `SCOPE_` (thành `SCOPE_read`, `SCOPE_write`). Do đó, claim `roles` bị bỏ qua hoàn toàn, người dùng không có bất kỳ quyền `ROLE_` nào trong `SecurityContext`!
+- _Khắc phục:_ Cấu hình `JwtGrantedAuthoritiesConverter.setAuthoritiesClaimName("roles")` và set `authorityPrefix` chuẩn xác như đã minh họa ở phần code.
+
+- **Bẫy 3: Nguy cơ rò rỉ dữ liệu nhạy cảm qua Base64 URL**
+- _Hiện tượng:_ Lập trình viên nhúng `email`, `phoneNumber`, hoặc thậm chí trạng thái tài khoản vào JWT Payload vì nghĩ rằng dữ liệu gửi qua HTTPS là an toàn.
+
+- _Nguyên nhân:_ Token được lưu trữ ở phía Client (LocalStorage, IndexedDB hoặc Mobile Secure Storage). Bất kỳ extension trình duyệt hoặc mã độc XSS nào cũng có thể gọi `JSON.parse(atob(token.split('.')[1]))` để đọc toàn bộ thông tin nhạy cảm của người dùng.
+
+- _Khắc phục:_ Chỉ nhúng các metadata tối thiểu phục vụ kiểm tra quyền (`sub`, `roles`, `userId`, `jti`).
+
+---
+
+### 5. BỘ CÂU HỎI TƯ DUY & PHẢN BIỆN (DEEP-DIVE QUESTIONS)
+
+1. _Trong một hệ sinh thái microservices của InstaClone, tại sao các service nội bộ (như Post Service hay Media Service) chỉ nên giữ RSA Public Key mà không bao giờ được phép tiếp cận RSA Private Key? Điều gì sẽ xảy ra với toàn bộ hệ thống nếu một service vệ tinh bị chiếm quyền điều khiển và làm lộ Private Key?_
+2. _So sánh chi phí tính toán và mức độ an toàn giữa việc kiểm tra tính hợp lệ của JWT hoàn toàn offline (dựa trên chữ ký số) và giải pháp kiểm tra trạng thái token online thông qua introspection endpoint hoặc Redis blacklist. InstaClone nên áp dụng giải pháp nào cho các hành động cực kỳ nhạy cảm (như chuyển nhượng quyền sở hữu tài khoản hoặc đổi email)?_
+
+---
+
+---
+
+## CHƯƠNG 8: KIẾN TRÚC HIỆN ĐẠI TRONG SPRING SECURITY 7.x (OAUTH 2.1, MFA, OTT) & KIỂM THỬ BẢO MẬT
+
+### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
+
+#### Bài toán thực tế trên mạng xã hội InstaClone
+
+Để hoàn thiện nền tảng InstaClone đẳng cấp sản phẩm thương mại, hệ thống cần đáp ứng các tiêu chuẩn công nghiệp hiện đại:
+
+1. **Xác thực mạng xã hội (Social Login):** Cho phép người dùng đăng nhập bằng Google hoặc GitHub một chạm thông qua luồng chuẩn hóa thế hệ mới OAuth 2.1.
+
+2. **Bảo vệ thao tác nhạy cảm bằng Xác thực Đa nhân tố (MFA - Multi-Factor Authentication):** Đối với các hành động mang tính rủi ro cao (như xóa vĩnh viễn tài khoản `DELETE /api/v1/users/me` hoặc đổi mật khẩu), việc chỉ có mật khẩu hay JWT thông thường là không đủ tin cậy. Hệ thống phải ép buộc người dùng cung cấp thêm nhân tố thứ hai (One-Time Token/OTP).
+
+3. **Đăng nhập không mật khẩu (Passwordless Authentication):** Hỗ trợ tính năng Magic Link tiện lợi qua Email thông qua cơ chế One-Time Token (OTT).
+
+4. **Kiểm thử tự động (Security Testing Automation):** Đảm bảo 100% các quy tắc phân quyền, kiểm tra lỗi 401/403 được kiểm thử tự động trong quy trình CI/CD mà không cần phải khởi chạy toàn bộ server thật hay tạo tài khoản rác trong cơ sở dữ liệu.
+
+Tuy nhiên, OAuth 2.0 truyền thống có nhiều kẽ hở nghiêm trọng:
+
+- **Resource Owner Password Credentials Grant (Password Grant)** cho phép Client thu thập trực tiếp mật khẩu của người dùng, phá vỡ nguyên tắc ủy quyền an toàn.
+- Kiểu tấn công đánh cắp Authorization Code trên các ứng dụng di động công khai (Native Mobile Apps).
+
+#### Câu hỏi tư duy trọng tâm
+
+> Tại sao đặc tả OAuth 2.1 lại khai tử hoàn toàn Password Grant và bắt buộc áp dụng PKCE (Proof Key for Code Exchange) cho tất cả các loại ứng dụng? Spring Security 7.x triển khai cơ chế Xác thực Đa nhân tố (`@EnableMultiFactorAuthentication`) và kiểm thử MockMvc tích hợp sâu như thế nào?
+
+---
+
+### 2. PHÂN TÍCH KIẾN TRÚC & CƠ CHẾ NỘI TẠI (UNDER THE HOOD)
+
+#### 2.1. Chuẩn hóa OAuth 2.1: Bắt buộc PKCE & Khai tử Password Grant
+
+OAuth 2.1 là sự củng cố và siết chặt các tiêu chuẩn an toàn từ OAuth 2.0:
+
+- **Xóa bỏ hoàn toàn Password Grant & Implicit Grant:** Người dùng không bao giờ được phép nhập mật khẩu trực tiếp vào ứng dụng Client.
+
+- **Bắt buộc PKCE (Proof Key for Code Exchange):** Trước đây PKCE chỉ áp dụng cho Single Page Apps (SPA) và Mobile Apps. Trong OAuth 2.1 và Spring Security 7.x, PKCE là **bắt buộc cho tất cả các luồng Authorization Code**, kể cả Web Apps truyền thống chạy trên server.
+
+```
+  InstaClone Client                   Authorization Server (Google)           InstaClone Backend
+         │                                         │                                  │
+         │ 1. Sinh ngẫu nhiên Code Verifier       │                                  │
+         │    và mã hóa Code Challenge = SHA256(v) │                                  │
+         │                                         │                                  │
+         │ 2. Chuyển hướng đăng nhập:              │                                  │
+         │    /authorize?code_challenge=...        │                                  │
+         │ ──────────────────────────────────────> │                                  │
+         │                                         │                                  │
+         │ 3. Người dùng đồng ý cấp quyền          │                                  │
+         │ <────────────────────────────────────── │                                  │
+         │    Trả về Authorization Code            │                                  │
+         │                                         │                                  │
+         │ 4. Trao đổi Code lấy Token:             │                                  │
+         │    /oauth/token?code=...                │                                  │
+         │    & code_verifier=... (Bí mật gốc)     │                                  │
+         │ ──────────────────────────────────────> │ (Server tự tính SHA256(verifier)│
+         │                                         │  so sánh với code_challenge)     │
+         │                                         │                                  │
+         │ 5. Khớp thành công -> Cấp Access Token  │                                  │
+         │ <────────────────────────────────────── │                                  │
+
+```
+
+_Tác dụng của PKCE:_ Nếu kẻ tấn công trên điện thoại đánh cắp được Authorization Code từ Custom URI Scheme, chúng cũng không thể đổi lấy Token vì không có `code_verifier` ban đầu!
+
+#### 2.2. Kiến trúc Xác thực Đa nhân tố (MFA) Mới trong Spring Security 7.x
+
+Trước phiên bản 7.0, việc triển khai MFA đòi hỏi lập trình viên phải tự quản lý trạng thái phiên đăng nhập dở dang (Pre-authenticated state) rất phức tạp.
+Spring Security 7.x giới thiệu tính năng tích hợp sẵn mang tính đột phá:
+
+- **`@EnableMultiFactorAuthentication`**: Kích hoạt bộ xử lý đa nhân tố toàn diện cho ứng dụng.
+
+- **`FactorGrantedAuthority`**: Đại diện cho từng nhân tố bảo mật mà người dùng đã hoàn thành trong phiên làm việc (ví dụ: `FACTOR_PASSWORD`, `FACTOR_OTT`, `FACTOR_TOTP`).
+
+- **`AllRequiredFactorsAuthorizationManager`**: Một `AuthorizationManager` chuyên biệt giám sát các endpoint nhạy cảm; nó chỉ cấp quyền truy cập nếu danh sách `Authentication` của người dùng sở hữu đủ tập hợp các nhân tố bắt buộc.
+
+#### 2.3. Cơ chế Đăng nhập Một lần: One-Time Token (OTT)
+
+Spring Security 7.x bổ sung DSL chuẩn **`http.oneTimeTokenLogin()`**:
+
+1. Người dùng yêu cầu đăng nhập bằng email: `POST /ott/generate` kèm email.
+2. Spring Security sinh ra một token dùng một lần ngẫu nhiên có hạn sử dụng ngắn (ví dụ: 5 phút), nạp vào `OneTimeTokenService`.
+3. Một `OneTimeTokenGenerationSuccessHandler` được kích hoạt để gửi token (dưới dạng mã số hoặc liên kết Magic Link) qua email của người dùng.
+4. Người dùng bấm liên kết hoặc gửi lại mã: `POST /login/ott?token=...`. Bộ lọc `OneTimeTokenAuthenticationFilter` xác minh token, hủy bỏ token ngay lập tức (chống Replay Attack) và thiết lập trạng thái xác thực.
+
+#### 2.4. Triết lý Kiểm thử Bảo mật với `spring-security-test`
+
+Kiểm thử tầng bảo mật không nên khởi chạy toàn bộ server mạng (tránh chậm trễ). Spring Security cung cấp các công cụ giả lập ngữ cảnh:
+
+- **`@WithMockUser`**: Giả lập tức thì một `UsernamePasswordAuthenticationToken` trong `SecurityContextHolder` với username, role tùy chọn mà không cần query database.
+
+- **`@WithUserDetails`**: Bắt buộc hệ thống phải gọi hàm `UserDetailsService.loadUserByUsername()` có thật từ database/test-fixture để nạp Principal thực tế (dùng khi Controller phụ thuộc vào các trường tùy biến trong `InstaCloneUserDetails`).
+
+- **`SecurityMockMvcRequestPostProcessors.jwt()`**: Tiêm giả lập một `JwtAuthenticationToken` hoàn chỉnh vào request MockMvc, hỗ trợ cấu hình tùy biến claim `roles`, `sub`, `userId` trực tiếp trong mã test.
+
+---
+
+### 3. MINH HỌA CODE CHUẨN MỰC TRÊN INSTACLONE
+
+Dưới đây là mã nguồn toàn diện triển khai OAuth2 Client, One-Time Token Login, Phân quyền MFA cho thao tác nhạy cảm và các ca kiểm thử bảo mật tự động của InstaClone.
+
+#### 3.1. Cấu hình Toàn diện: OAuth 2.1, One-Time Token & MFA Chuẩn 7.x
+
+```java
+package com.instaclone.infrastructure.security.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.ott.OneTimeToken;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler;
+
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+public class AdvancedSecurityConfig {
+
+    @Bean
+    public SecurityFilterChain advancedSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable()) // Giả định môi trường API / SPA
+
+            // 1. Phân quyền Request-level
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/v1/feed/public/**", "/ott/generate").permitAll()
+                // THAO TÁC NHẠY CẢM: Xóa tài khoản bắt buộc phải có nhân tố xác thực thứ hai (OTT)
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me").hasAuthority("FACTOR_OTT")
+                .anyRequest().authenticated()
+            )
+
+            // 2. Kích hoạt OAuth 2.1 Social Login (Mặc định bắt buộc PKCE)
+            .oauth2Login(oauth2 -> oauth2
+                .defaultSuccessUrl("/api/v1/users/me", true)
+            )
+
+            // 3. Chuẩn 7.x: Đăng nhập Một lần (One-Time Token / Magic Link)
+            .oneTimeTokenLogin(ott -> ott
+                .tokenGeneratingUrl("/ott/generate") // Endpoint Client gửi email xin mã
+                .showComponents(false)
+                .tokenGenerationSuccessHandler(magicLinkEmailHandler())
+            )
+
+            .httpBasic(Customizer.withDefaults());
+
+        return http.build();
+    }
+
+    /**
+     * Handler tiếp nhận OTT vừa sinh ra và tiến hành gửi email Magic Link tới người dùng
+     */
+    @Bean
+    public OneTimeTokenGenerationSuccessHandler magicLinkEmailHandler() {
+        return (request, response, oneTimeToken) -> {
+            String tokenValue = oneTimeToken.getTokenValue();
+            String username = oneTimeToken.getUsername();
+
+            // Trong thực tế: Tiêm EmailService để gửi link "https://instaclone.com/login/ott?token=" + tokenValue
+            System.out.printf("[InstaClone Notification] Magic Link gửi tới %s: https://instaclone.com/login/ott?token=%s%n",
+                    username, tokenValue);
+
+            response.setContentType("application/json");
+            response.getWriter().write("""
+                {
+                    "message": "One-time login token has been dispatched to your email."
+                }
+                """);
+        };
+    }
+}
+
+```
+
+#### 3.2. REST Controller Thao Tác Nhạy Cảm (Xóa Tài Khoản)
+
+```java
+package com.instaclone.presentation.controller;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/users")
+public class UserManagementController {
+
+    /**
+     * API xóa tài khoản cá nhân vĩnh viễn.
+     * Bảo vệ tầng sâu: Bắt buộc đã xác thực và sở hữu nhân tố FACTOR_OTT từ Spring Security 7.x
+     */
+    @DeleteMapping("/me")
+    @PreAuthorize("hasAuthority('FACTOR_OTT')")
+    public ResponseEntity<?> deleteMyAccount(Authentication authentication) {
+        String username = authentication.getName();
+        // Thực thi nghiệp vụ xóa tài khoản và media liên quan của InstaClone
+        return ResponseEntity.ok(Map.of(
+            "status", "DELETED",
+            "message", "User account " + username + " and all associated data have been permanently purged."
+        ));
+    }
+}
+
+```
+
+#### 3.3. Bộ Kiểm Thử Tự Động Toàn Diện với MockMvc (`PostControllerSecurityTest`)
+
+Dưới đây là lớp kiểm thử integration test sử dụng `spring-security-test`, xác minh đầy đủ các trạng thái `401 Unauthorized`, `403 Forbidden` và `200 OK` cho hành vi xóa bài đăng chống BOLA/IDOR và phân quyền Moderator:
+
+```java
+package com.instaclone.presentation.controller;
+
+import com.instaclone.application.service.PostService;
+import com.instaclone.infrastructure.security.config.SecurityConfig;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(controllers = PostController.class)
+@Import(SecurityConfig.class) // Nạp cấu hình bảo mật vào ngữ cảnh test
+class PostControllerSecurityTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private PostService postService;
+
+    @Test
+    @DisplayName("1. Truy cập Feed công khai không cần đăng nhập -> Trả về 200 OK")
+    void getPublicFeed_Anonymous_Returns200() throws Exception {
+        mockMvc.perform(get("/api/v1/feed/public/explore"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("2. Xóa bài viết khi chưa đăng nhập (Unauthenticated) -> Trả về 401 Unauthorized")
+    void deletePost_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(delete("/api/v1/posts/100"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("3. Người dùng Bob xóa bài của Alice (BOLA Attack) -> Bị chặn với 403 Forbidden")
+    @WithMockUser(username = "bob", roles = {"USER"})
+    void deletePost_NotOwner_Returns403() throws Exception {
+        // Giả lập PostService ném AccessDeniedException do @PreAuthorize ngăn chặn
+        doThrow(new org.springframework.security.access.AccessDeniedException("Not your post!"))
+                .when(postService).deletePost(105L);
+
+        mockMvc.perform(delete("/api/v1/posts/105"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("4. Kiểm duyệt viên xóa bài vi phạm -> Trả về 200 OK")
+    @WithMockUser(username = "mod_alice", roles = {"MODERATOR"})
+    void deletePost_AsModerator_Returns200() throws Exception {
+        doNothing().when(postService).deletePost(105L);
+
+        mockMvc.perform(delete("/api/v1/posts/105"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("5. Kiểm thử với Stateless JWT PostProcessor: Quyền Admin -> Trả về 200 OK")
+    void deletePost_WithStatelessJwt_Returns200() throws Exception {
+        doNothing().when(postService).deletePost(105L);
+
+        // Giả lập trực tiếp một JWT Token có chứa claim roles = ROLE_ADMIN
+        mockMvc.perform(delete("/api/v1/posts/105")
+                .with(jwt().jwt(builder -> builder
+                        .claim("sub", "admin_super")
+                        .claim("roles", "ROLE_ADMIN")
+                )))
+                .andExpect(status().isOk());
+    }
+}
+
+```
+
+---
+
+### 4. BẪY LỖI KINH ĐIỂN & RỦI RO BẢO MẬT (GOTCHAS & PITFALLS)
+
+- **Bẫy 1: Thất bại kiểm thử do thiếu CSRF Token trong các request thay đổi trạng thái (POST/PUT/DELETE)**
+
+- _Hiện tượng:_ Viết test MockMvc cho `delete("/api/v1/posts/1")` với `@WithMockUser(roles="ADMIN")`, kết quả mong đợi là `200 OK` nhưng MockMvc luôn trả về `403 Forbidden`!
+
+- _Nguyên nhân:_ Môi trường ứng dụng vẫn đang bật CSRF. Mặc dù người dùng đã có đủ quyền hạn thông qua `@WithMockUser`, request gửi đi thiếu mã CSRF Token nên `CsrfFilter` đã ngắt request và ném mã lỗi 403 trước khi request chạm tới `AuthorizationFilter` hay `PostService`!
+
+- _Cách debug & sửa:_ Thêm post-processor `.with(csrf())` vào request kiểm thử:
+
+```java
+mockMvc.perform(delete("/api/v1/posts/1").with(csrf()))
+       .andExpect(status().isOk());
+
+```
+
+- **Bẫy 2: Dùng sai `@WithMockUser` thay vì `@WithUserDetails` khi Controller ép kiểu Principal**
+
+- _Hiện tượng:_ Test chạy thất bại với ngoại lệ `ClassCastException: org.springframework.security.core.userdetails.User cannot be cast to com.instaclone.infrastructure.security.model.InstaCloneUserDetails`.
+- _Nguyên nhân:_ `@WithMockUser` chỉ tạo một thực thể `User` chuẩn mặc định của Spring Security. Nếu trong Controller hoặc Custom Evaluator của InstaClone có đoạn code:
+  `InstaCloneUserDetails user = (InstaCloneUserDetails) authentication.getPrincipal();`
+  việc ép kiểu sẽ gãy đổ hoàn toàn.
+
+- _Cách khắc phục:_ Chuyển sang sử dụng `@WithUserDetails(value = "cuong_admin", userDetailsServiceBeanName = "instaCloneUserDetailsService")` để nạp đúng đối tượng triển khai thực tế của ứng dụng.
+
+- **Bẫy 3: Sử dụng giá trị Redirect URI lỏng lẻo trong OAuth 2.1 (Open Redirector Attack)**
+- _Hiện tượng:_ Cấu hình `redirect_uri` phía máy chủ ủy quyền dùng ký tự đại diện wildcard (ví dụ: `https://*[.instaclone.com/](https://.instaclone.com/)*`).
+- _Nguy cơ:_ Kẻ tấn công có thể lợi dụng một subdomain bị chiếm quyền hoặc một trang chuyển hướng trung gian để chiếm đoạt chuỗi Authorization Code hoặc Token trên đường callback.
+- _Cách khắc phục:_ Theo chuẩn bắt buộc của OAuth 2.1, các Redirect URI phải được cấu hình **chính xác tuyệt đối 100% từng ký tự** (Exact String Matching), nghiêm cấm mọi hình thức dùng regex hoặc wildcard.
+
+---
+
+### 5. BỘ CÂU HỎI TƯ DUY & PHẢN BIỆN (DEEP-DIVE QUESTIONS)
+
+1. _Phân tích sự khác biệt về mặt kiến trúc và luồng xử lý giữa việc kiểm thử Controller với `@WebMvcTest` (sử dụng MockMvc giả lập) và kiểm thử với `@SpringBootTest(webEnvironment = RANDOM_PORT)` kết hợp `TestRestTemplate`. Khi nào bắt buộc phải dùng `@SpringBootTest` để kiểm tra toàn diện chuỗi lọc của Spring Security?_
+2. _Trong kịch bản người dùng InstaClone đăng nhập bằng One-Time Token (OTT qua email), hãy phân tích rủi ro bảo mật nếu giá trị token được gửi qua phương thức HTTP GET (dưới dạng query parameter trong Magic Link) so với gửi qua HTTP POST body. Máy chủ proxy hoặc nhật ký truy cập (Access Log) của Web Server có thể làm lộ lọt token như thế nào, và Spring Security 7.x giải quyết bài toán này ra sao?_
