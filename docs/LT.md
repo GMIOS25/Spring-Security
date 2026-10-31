@@ -50,35 +50,38 @@ Trong giai đoạn đầu phát triển nền tảng mạng xã hội InstaClone
 
 Sự khác biệt mang tính sống còn giữa hai cơ chế nằm ở vị trí thực thi trong vòng đời của một HTTP Request trên Web Server:
 
-```
-[ HTTP Request từ Internet ]
-               │
-               ▼
-   ┌────────────────────────────────────────────────────────┐
-   │             Tomcat / Jetty Web Container               │
-   │                                                        │
-   │   ┌────────────────────────────────────────────────┐   │
-   │   │  Servlet Filter Chain (Standard Servlet API)   │   │
-   │   │                                                │   │
-   │   │  [Filter 1] ──> [Spring Security Filters] ──── │───┼──> TRUST BOUNDARY
-   │   │                                                │   │    (Ngăn chặn từ cửa ngõ)
-   │   └───────────────────────┬────────────────────────┘   │
-   │                           │                            │
-   │                           ▼                            │
-   │   ┌────────────────────────────────────────────────┐   │
-   │   │        DispatcherServlet (Spring MVC)          │   │
-   │   │                                                │   │
-   │   │   ┌────────────────────────────────────────┐   │   │
-   │   │   │       Spring MVC HandlerInterceptor    │   │   │
-   │   │   │   (Chỉ áp dụng cho Controllers)       │   │   │
-   │   │   └───────────────────┬────────────────────┘   │   │
-   │   │                       ▼                        │   │
-   │   │   ┌────────────────────────────────────────┐   │   │
-   │   │   │       @RestController (InstaClone)     │   │   │
-   │   │   └────────────────────────────────────────┘   │   │
-   │   └────────────────────────────────────────────────┘   │
-   └────────────────────────────────────────────────────────┘
+![Hình 1: Ranh giới tin cậy (Trust Boundary) giữa Servlet Filter Chain và DispatcherServlet trong Servlet Container](images/diagram_1.png)
 
+```mermaid
+flowchart TD
+    Client["HTTP Request từ Internet"] --> Tomcat
+
+    subgraph Tomcat["Tomcat / Jetty Web Container"]
+        subgraph SFC["Servlet Filter Chain (Standard Servlet API)"]
+            direction LR
+            F1["Filter 1"] --> SSF["Spring Security Filters"]
+        end
+
+        subgraph DS["DispatcherServlet (Spring MVC)"]
+            direction TB
+            HI["Spring MVC HandlerInterceptor<br/><i>(Chỉ áp dụng cho Controllers)</i>"]
+            RC["@RestController (InstaClone)"]
+            HI --> RC
+        end
+
+        SFC -->|"Request hợp lệ"| DS
+    end
+
+    SSF -.->|"TRUST BOUNDARY<br/>(Ngăn chặn từ cửa ngõ)"| TB["TRUST BOUNDARY<br/>Ngăn chặn từ cửa ngõ"]
+
+    classDef boundary fill:#fee2e2,stroke:#ef4444,stroke-width:2px,color:#991b1b;
+    classDef container fill:#f8fafc,stroke:#64748b,stroke-width:2px;
+    classDef filter fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+    classDef mvc fill:#fef3c7,stroke:#d97706,stroke-width:2px;
+    class TB boundary;
+    class Tomcat container;
+    class SFC,F1,SSF filter;
+    class DS,HI,RC mvc;
 ```
 
 - **Servlet Filter (Cơ chế của Spring Security):** Nằm ở tầng Servlet Container chuẩn (Jakarta EE). Bộ lọc này chặn request **trước** khi `DispatcherServlet` được kích hoạt. Nếu một request không hợp lệ hoặc có dấu hiệu tấn công, Filter có thể phản hồi mã lỗi `401 Unauthorized` hoặc `403 Forbidden` ngay lập tức, hoàn toàn không tốn tài nguyên khởi tạo context của Spring MVC, không gọi Reflection và ngăn ngừa tuyệt đối các cuộc tấn công khai thác vào tầng Controller.
@@ -304,39 +307,41 @@ Nhiều lập trình viên khi nâng cấp từ các phiên bản cũ (Spring Se
 
 Web Container (như Tomcat) quản lý vòng đời của các Servlet Filter thông qua đặc tả Servlet API chuẩn. Tuy nhiên, các Filter bảo mật cần tương tác với Database, cấu hình và các Spring Bean khác. Để giải quyết mâu thuẫn này, Spring Security sử dụng mẫu thiết kế Proxy:
 
-```
-                                [ CLIENT / BROWSER ]
-                                          │
-                                          ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                Tomcat Web Container                                    │
-│                                                                                        │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐   │
-│   │                      Standard Servlet Filter Chain                             │   │
-│   │                                                                                │   │
-│   │   [StandardFilter] ──> [DelegatingFilterProxy] ──> [OtherServletFilter]        │   │
-│   └───────────────────────────────────┬────────────────────────────────────────────┘   │
-└───────────────────────────────────────┼────────────────────────────────────────────────┘
-                                        │ (Ủy quyền xử lý request)
-                                        ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              Spring ApplicationContext                                 │
-│                                                                                        │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐   │
-│   │  Bean "springSecurityFilterChain" (Thực thể của FilterChainProxy)              │   │
-│   │                                                                                │   │
-│   │   ┌────────────────────────────────────────────────────────────────────────┐   │   │
-│   │   │ SecurityFilterChain 1: Matches /api/v1/feed/public/**                  │   │   │
-│   │   │ (SecurityContextHolderFilter -> AnonymousAuthenticationFilter -> ...)  │   │   │
-│   │   └────────────────────────────────────────────────────────────────────────┘   │   │
-│   │   ┌────────────────────────────────────────────────────────────────────────┐   │   │
-│   │   │ SecurityFilterChain 2: Matches /** (Mặc định cho toàn bộ ứng dụng)     │   │   │
-│   │   │ (SecurityContextHolderFilter -> InstaRateLimitFilter ->                │   │   │
-│   │   │  UsernamePasswordAuthenticationFilter -> AuthorizationFilter -> ...)   │   │   │
-│   │   └────────────────────────────────────────────────────────────────────────┘   │   │
-│   └────────────────────────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+![Hình 2: Kiến trúc ủy quyền DelegatingFilterProxy và FilterChainProxy trong Spring Security](images/diagram_2.png)
 
+```mermaid
+flowchart TD
+    Client["CLIENT / BROWSER"] --> Tomcat
+
+    subgraph Tomcat["Tomcat Web Container"]
+        subgraph SSFC["Standard Servlet Filter Chain"]
+            direction LR
+            SF["StandardFilter"] --> DFP["DelegatingFilterProxy"] --> OSF["OtherServletFilter"]
+        end
+    end
+
+    DFP -->|"Ủy quyền xử lý request"| FCP
+
+    subgraph AppCtx["Spring ApplicationContext"]
+        subgraph FCP["Bean 'springSecurityFilterChain' (Thực thể của FilterChainProxy)"]
+            direction TB
+            subgraph SFC1["SecurityFilterChain 1: Matches /api/v1/feed/public/**"]
+                SFC1_D["SecurityContextHolderFilter ➔ AnonymousAuthenticationFilter ➔ ..."]
+            end
+            subgraph SFC2["SecurityFilterChain 2: Matches /** (Mặc định cho toàn bộ ứng dụng)"]
+                SFC2_D["SecurityContextHolderFilter ➔ InstaRateLimitFilter ➔<br/>UsernamePasswordAuthenticationFilter ➔ AuthorizationFilter ➔ ..."]
+            end
+        end
+    end
+
+    classDef container fill:#f8fafc,stroke:#64748b,stroke-width:2px;
+    classDef proxy fill:#fef3c7,stroke:#d97706,stroke-width:2px;
+    classDef chain1 fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px;
+    classDef chain2 fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px;
+    class Tomcat,AppCtx container;
+    class DFP,FCP proxy;
+    class SFC1,SFC1_D chain1;
+    class SFC2,SFC2_D chain2;
 ```
 
 1. **`DelegatingFilterProxy`:**
@@ -640,25 +645,31 @@ Spring Security trừu tượng hóa toàn bộ nghiệp vụ xử lý mật kh�
 
 - `default boolean upgradeEncoding(String encodedPassword)`: Kiểm tra xem chuỗi hash hiện tại có cần được nâng cấp lên thuật toán mạnh hơn hoặc Cost Factor cao hơn hay không.
 
-```
-                     +---------------------------------------+
-                     |    <<interface>> PasswordEncoder      |
-                     +---------------------------------------+
-                     | + encode(rawPassword)                 |
-                     | + matches(rawPassword, encoded)       |
-                     | + upgradeEncoding(encoded)            |
-                     +---------------------------------------+
-                                         ▲
-                                         │ implements
-            +----------------------------┴----------------------------+
-            |                                                         |
-+------------------------------+                        +------------------------------+
-|   BCryptPasswordEncoder      |                        |  DelegatingPasswordEncoder   |
-+------------------------------+                        +------------------------------+
-| - version: "$2a$" / "$2b$"   |                        | - defaultPasswordEncoderForId|
-| - strength: 4..31 (cost)     |                        | - idToPasswordEncoder (Map)  |
-+------------------------------+                        +------------------------------+
+![Hình 3: Class Diagram của PasswordEncoder và các triển khai chuẩn (BCrypt, DelegatingPasswordEncoder)](images/diagram_3.png)
 
+```mermaid
+classDiagram
+    class PasswordEncoder {
+        <<interface>>
+        +encode(CharSequence rawPassword) String
+        +matches(CharSequence rawPassword, String encodedPassword) boolean
+        +upgradeEncoding(String encodedPassword) boolean
+    }
+    class BCryptPasswordEncoder {
+        -version: "$2a$" / "$2b$"
+        -strength: 4..31 (cost factor)
+        +encode(CharSequence rawPassword) String
+        +matches(CharSequence rawPassword, String encodedPassword) boolean
+    }
+    class DelegatingPasswordEncoder {
+        -defaultPasswordEncoderForId: String
+        -idToPasswordEncoder: Map~String, PasswordEncoder~
+        +encode(CharSequence rawPassword) String
+        +matches(CharSequence rawPassword, String encodedPassword) boolean
+    }
+
+    PasswordEncoder <|.. BCryptPasswordEncoder : implements
+    PasswordEncoder <|.. DelegatingPasswordEncoder : implements
 ```
 
 ##### Cơ chế tiền tố thuật toán (Algorithm Prefix)
@@ -678,11 +689,27 @@ Khi hệ thống InstaClone hoạt động qua nhiều năm và muốn nâng c�
 
 Một chuỗi băm BCrypt chuẩn mực có độ dài 60 ký tự, cấu trúc thành 4 phần riêng biệt:
 
-```
-  $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
-  ├───┼───┼──────────────────────┼─────────────────────────────┤
-   (1) (2)          (3)                        (4)
+![Hình 4: Chi tiết cấu trúc 60 ký tự của một chuỗi BCrypt Hash (Identifier, Cost Factor, Salt, Hash)](images/diagram_4.png)
 
+```mermaid
+flowchart LR
+    subgraph Hash["Cấu trúc chuỗi BCrypt Hash hoàn chỉnh"]
+        direction LR
+        P1["<b>(1) $2a$</b><br/>Thuật toán: BCrypt"]
+        P2["<b>(2) 10$</b><br/>Cost Factor: 2^10 = 1024 vòng lặp"]
+        P3["<b>(3) N9qo8uLOickgx2ZMRZoMye</b><br/>Salt: 16 bytes ngẫu nhiên (22 ký tự Base64)"]
+        P4["<b>(4) IjZAgcfl7p92ldGxad68LJZdL17lhWy</b><br/>Hash: 24 bytes giá trị băm (31 ký tự Base64)"]
+        P1 --- P2 --- P3 --- P4
+    end
+
+    classDef p1 fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px;
+    classDef p2 fill:#fef3c7,stroke:#d97706,stroke-width:1.5px;
+    classDef p3 fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px;
+    classDef p4 fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px;
+    class P1 p1;
+    class P2 p2;
+    class P3 p3;
+    class P4 p4;
 ```
 
 1. `$2a$`: Định danh phiên bản thuật toán BCrypt.
@@ -935,34 +962,27 @@ Nhiều lập trình viên tự xử lý luồng này bằng cách:
 
 Hệ thống xác thực của Spring Security được xây dựng dựa trên các thành phần độc lập nhưng phối hợp chặt chẽ theo mẫu thiết kế **Chain of Responsibility** và **Strategy Pattern**:
 
-```
-[ Client Request: {username, password} ]
-                  │
-                  ▼
-   +───────────────────────────────+
-   | AuthenticationFilter          |  Tạo UsernamePasswordAuthenticationToken
-   | (hoặc Custom Auth Controller) |  (Trạng thái: Chưa xác thực - isAuthenticated = false)
-   +──────────────┬────────────────+
-                  │
-                  ▼ Gọi authenticate(token)
-   +───────────────────────────────+
-   | AuthenticationManager         |  Giao diện điều phối tổng thể
-   | (Thực thể: ProviderManager)   |  Duyệt qua danh sách AuthenticationProvider
-   +──────────────┬────────────────+
-                  │
-                  ▼ Ủy quyền cho Provider thích hợp
-   +───────────────────────────────+
-   | DaoAuthenticationProvider     |  Xử lý xác thực Username / Password
-   +──────────────┬────────────────+
-                  │
-         ┌────────┴────────────────────────┐
-         │ 1. loadUserByUsername()         │ 2. matches(rawPassword, encodedPassword)
-         ▼                                 ▼
-+──────────────────────────+     +──────────────────────────+
-| UserDetailsService       |     | PasswordEncoder          |
-| (InstaCloneUserDetail...) |     | (DelegatingPassword...)  |
-+──────────────────────────+     +──────────────────────────+
+![Hình 5: Luồng phối hợp kiến trúc trong quá trình xác thực Username/Password](images/diagram_5.png)
 
+```mermaid
+flowchart TD
+    Req["Client Request: {username, password}"] --> AF["AuthenticationFilter<br/><i>(hoặc Custom Auth Controller)</i>"]
+    
+    AF -->|"Tạo UsernamePasswordAuthenticationToken<br/>(Chưa xác thực: isAuthenticated = false)"| AM["AuthenticationManager<br/><b>(Thực thể: ProviderManager)</b><br/><i>Duyệt danh sách AuthenticationProvider</i>"]
+    
+    AM -->|"Ủy quyền xác thực"| DAP["DaoAuthenticationProvider<br/><i>(Xử lý xác thực Username / Password)</i>"]
+    
+    DAP -->|"1. loadUserByUsername(username)"| UDS["UserDetailsService<br/><b>(InstaCloneUserDetailsServiceImpl)</b><br/>Truy vấn người dùng từ DB"]
+    DAP -->|"2. matches(rawPassword, encodedPassword)"| PE["PasswordEncoder<br/><b>(DelegatingPasswordEncoder / BCrypt)</b><br/>Kiểm tra mật khẩu an toàn"]
+
+    classDef filter fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+    classDef manager fill:#fef3c7,stroke:#d97706,stroke-width:2px;
+    classDef provider fill:#dbeafe,stroke:#2563eb,stroke-width:2px;
+    classDef worker fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    class AF filter;
+    class AM manager;
+    class DAP provider;
+    class UDS,PE worker;
 ```
 
 1. **`Authentication` (Interface):** Đại diện cho một yêu cầu xác thực hoặc một danh tính đã được xác thực. Gồm các phương thức cốt lõi:
@@ -997,26 +1017,28 @@ Hệ thống xác thực của Spring Security được xây dựng dựa trên 
 
 Dưới đây là luồng tương tác chi tiết khi một request đăng nhập được xử lý qua `DaoAuthenticationProvider`:
 
-```
-Client             ProviderManager      DaoAuthProvider     UserDetailsService    PasswordEncoder    SecurityContextHolder
-  │                       │                    │                    │                   │                     │
-  │── POST /login ───────>│                    │                    │                   │                     │
-  │   (user, pass)        │                    │                    │                   │                     │
-  │                       │── authenticate() ─>│                    │                   │                     │
-  │                       │                    │── loadUserBy... ──>│                   │                     │
-  │                       │                    │   (username)       │                   │                     │
-  │                       │                    │<── UserDetails ────│                   │                     │
-  │                       │                    │                    │                   │                     │
-  │                       │                    │── matches(raw, encoded) ──────────────>│                     │
-  │                       │                    │<── true ───────────────────────────────│                     │
-  │                       │                    │                                                              │
-  │                       │                    │── Tạo Authentication Token mới (authenticated = true)        │
-  │                       │                    │   (Xóa bỏ credentials nhạy cảm)                              │
-  │                       │<── Auth Token ─────│                                                              │
-  │                       │                    │                                                              │
-  │                       │────────────────────┼─────────────────────────────────────────────────────────────>│ Lưu trữ Context
-  │<── 200 OK (Login OK) ─│                    │                                                              │ (ThreadLocal)
+![Hình 6: Biểu đồ tuần tự (Sequence Diagram) chi tiết quá trình đăng nhập và tạo Authentication Token](images/diagram_6.png)
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant PM as ProviderManager
+    participant DAP as DaoAuthenticationProvider
+    participant UDS as UserDetailsService
+    participant PE as PasswordEncoder
+    participant SCH as SecurityContextHolder
+
+    Client->>PM: POST /login (username, password)
+    PM->>DAP: authenticate(unauthenticatedToken)
+    DAP->>UDS: loadUserByUsername(username)
+    UDS-->>DAP: UserDetails (thông tin user & password hash)
+    DAP->>PE: matches(rawPassword, encodedPassword)
+    PE-->>DAP: true (Mật khẩu chính xác)
+    Note over DAP: Tạo Authentication Token mới<br/>(authenticated = true, credentials cleared)
+    DAP-->>PM: Auth Token đã xác thực
+    PM->>SCH: setAuthentication(authToken) (Lưu ThreadLocal)
+    PM-->>Client: 200 OK (Đăng nhập thành công / Trả Token)
 ```
 
 #### 2.3. Cơ chế Quản lý `SecurityContext` trong Spring Security 7.x
@@ -1383,28 +1405,38 @@ Hệ thống cũ này sử dụng cơ chế biểu quyết phiếu bầu (Voting
 **Kiến trúc thống nhất trong Spring Security 7.x:**
 Toàn bộ `AccessDecisionManager`, `AccessDecisionVoter` và `FilterSecurityInterceptor` đã **bị xóa bỏ hoàn toàn**. Mọi quyết định phân quyền từ mức URL đến Method đều được quy chuẩn hóa về giao diện duy nhất: **`AuthorizationManager<T>`**.
 
-```
-                          +-------------------------------------------------+
-                          |     <<interface>> AuthorizationManager<T>       |
-                          +-------------------------------------------------+
-                          | + authorize(Supplier<Authentication>, T object) |
-                          +-------------------------------------------------+
-                                                   ▲
-                                                   │ implements
-         ┌─────────────────────────────────────────┴─────────────────────────────────────────┐
-         │                                                                                   │
-+------------------------------------+                             +------------------------------------+
-| RequestMatcherDelegating           |                             | AuthorityAuthorizationManager<T>   |
-| AuthorizationManager               |                             | (Kiểm tra ROLE_ hoặc Authority)    |
-| (Dùng cho tầng Request-level)      |                             +------------------------------------+
-+------------------------------------+                                               ▲
-         ▲                                                                           │
-         │ Được kích hoạt bởi                                                        │ Được kích hoạt bởi
-+------------------------------------+                             +------------------------------------+
-|       AuthorizationFilter          |                             | MethodSecurityInterceptor / AOP    |
-| (Thay thế FilterSecurityInterceptor|                             | (@PreAuthorize / @PostAuthorize)   |
-+------------------------------------+                             +------------------------------------+
+![Hình 7: Cấu trúc kiến trúc AuthorizationManager<T> và cơ chế kích hoạt tại tầng Request và Method](images/diagram_7.png)
 
+```mermaid
+flowchart TD
+    subgraph Interface["Tầng Giao Diện Cốt Lõi"]
+        AM["&lt;&lt;interface&gt;&gt;<br/><b>AuthorizationManager&lt;T&gt;</b><br/>+ authorize(Supplier&lt;Authentication&gt;, T object)"]
+    end
+
+    subgraph Impl["Các Implementation Chính"]
+        direction LR
+        RMDAM["<b>RequestMatcherDelegatingAuthorizationManager</b><br/><i>(Dùng cho tầng Request-level)</i>"]
+        AAM["<b>AuthorityAuthorizationManager&lt;T&gt;</b><br/><i>(Kiểm tra ROLE_ hoặc GrantedAuthority)</i>"]
+    end
+
+    RMDAM -.->|"implements"| AM
+    AAM -.->|"implements"| AM
+
+    subgraph Triggers["Tác Tử Kích Hoạt"]
+        direction LR
+        AF["<b>AuthorizationFilter</b><br/><i>(Thay thế FilterSecurityInterceptor)</i>"]
+        MSI["<b>MethodSecurityInterceptor / AOP</b><br/><i>(@PreAuthorize / @PostAuthorize)</i>"]
+    end
+
+    AF -->|"Ủy quyền kiểm tra Request"| RMDAM
+    MSI -->|"Ủy quyền kiểm tra Method"| AAM
+
+    classDef core fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+    classDef impl fill:#fef3c7,stroke:#d97706,stroke-width:2px;
+    classDef trigger fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    class AM core;
+    class RMDAM,AAM impl;
+    class AF,MSI trigger;
 ```
 
 Phương thức cốt lõi duy nhất:
@@ -1428,29 +1460,32 @@ Một nhầm lẫn kinh điển của lập trình viên là sử dụng lẫn l
 
 Để giải quyết triệt để BOLA/IDOR, quyết định phân quyền phải được dời vào tầng Service nơi nắm giữ ngữ cảnh dữ liệu của Domain Entity. Spring Security sử dụng **Spring AOP (Aspect-Oriented Programming)** với annotation `@EnableMethodSecurity`.
 
-```
-[ Client Request: DELETE /api/v1/posts/105 ]
-                   │
-                   ▼ (Đã qua AuthorizationFilter: User hợp lệ)
-       [ DispatcherServlet ]
-                   │
-                   ▼
-       [ PostController ]
-                   │
-                   ▼ (Gọi postService.deletePost(105))
- ┌───────────────────────────────────────────────────────────────┐
- │                  Spring AOP Proxy Wrapper                     │
- │                                                               │
- │   1. Interceptor chặn method call (@PreAuthorize)             │
- │   2. Trích xuất SpEL: "@postSecurity.isOwner(#postId, auth)"  │
- │   3. Gọi PostSecurity Bean kiểm tra trong Database:           │
- │      Post.getAuthor().getUsername() == auth.getName()         │
- │                                                               │
- │      [Quyền hợp lệ ?]                                         │
- │         ├── YES ──> Chuyển tiếp tới PostServiceImpl thực thi  │
- │         └── NO  ──> Ném AccessDeniedException (403 Forbidden) │
- └───────────────────────────────────────────────────────────────┘
+![Hình 8: Luồng xử lý phân quyền Method-level qua Spring AOP Proxy Wrapper và SpEL (@PreAuthorize)](images/diagram_8.png)
 
+```mermaid
+flowchart TD
+    Req["Client Request: DELETE /api/v1/posts/105"] -->|"Đã qua AuthorizationFilter (User hợp lệ)"| DS["DispatcherServlet"]
+    DS --> PC["PostController"]
+    PC -->|"Gọi postService.deletePost(105)"| AOP
+
+    subgraph AOP["Spring AOP Proxy Wrapper"]
+        direction TB
+        S1["1. Interceptor chặn gọi method (@PreAuthorize)"] --> S2["2. Trích xuất SpEL: @postSecurity.isOwner(#postId, auth)"]
+        S2 --> S3["3. Gọi PostSecurity Bean kiểm tra Database:<br/>Post.getAuthor().getUsername() == auth.getName()"]
+        S3 --> Decision{"Quyền hợp lệ?"}
+        Decision -->|YES| S4["Chuyển tiếp tới PostServiceImpl thực thi xóa bài"]
+        Decision -->|NO| S5["Ném AccessDeniedException<br/><b>(403 Forbidden)</b>"]
+    end
+
+    classDef req fill:#f1f5f9,stroke:#64748b,stroke-width:2px;
+    classDef mvc fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+    classDef aop fill:#fef3c7,stroke:#d97706,stroke-width:2px;
+    classDef yes fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    classDef no fill:#fee2e2,stroke:#dc2626,stroke-width:2px;
+    class Req,DS,PC mvc;
+    class AOP,S1,S2,S3,Decision aop;
+    class S4 yes;
+    class S5 no;
 ```
 
 ##### SpEL Operation Tracing trong Spring Framework 7
@@ -1693,21 +1728,25 @@ CSRF khai thác cơ chế ngầm định của trình duyệt: **Tự động g�
 
 - Khác với Cookie, CSRF Token **không bao giờ được trình duyệt tự động gửi đi**. Ứng dụng Client (Frontend) bắt buộc phải đọc Token này và tự tay nhúng nó vào Header HTTP (thường là `X-XSRF-TOKEN`) hoặc tham số của Form cho các thao tác làm thay đổi trạng thái hệ thống (`POST`, `PUT`, `DELETE`, `PATCH`).
 
-```
-               [ Trình duyệt / Client ]                        [ Backend InstaClone ]
-                           │                                              │
- 1. Đăng nhập thành công   │ ───────────────────────────────────────────> │
-                           │ <── Trả Cookie (JSESSIONID) & CSRF Token ─── │
-                           │                                              │
- 2. Kẻ tấn công lừa gửi    │                                              │
-    Request POST ngầm      │ ── POST /api/v1/posts ─────────────────────> │
-                           │    Cookie: JSESSIONID (Tự đính kèm)          │
-                           │    (KHÔNG CÓ CSRF Token trong Header!)       │
-                           │                                              │
-                           │                                              │ ──> [ CsrfFilter chặn lại ]
-                           │                                              │     Token bị thiếu/sai
-                           │ <── 403 Forbidden (CSRF Token Missing) ───── │
+![Hình 9: Biểu đồ tuần tự cơ chế tấn công CSRF và biện pháp phòng vệ bằng CsrfFilter & CSRF Token](images/diagram_9.png)
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Trình duyệt / Client
+    participant Backend as Backend InstaClone
+    participant CsrfFilter as CsrfFilter
+
+    Note over User,Backend: 1. Đăng nhập thành công & Cấp Token
+    User->>Backend: POST /api/v1/auth/login (Credentials)
+    Backend-->>User: 200 OK (Set-Cookie: JSESSIONID + Token: X-CSRF-TOKEN)
+
+    Note over User,Backend: 2. Kẻ tấn công lừa gửi Request ngầm (CSRF Attack)
+    User->>Backend: POST /api/v1/posts (Tự động gửi kèm Cookie: JSESSIONID)
+    Note over Backend,CsrfFilter: Yêu cầu chuyển qua CsrfFilter
+    Backend->>CsrfFilter: Kiểm tra Header: X-CSRF-TOKEN
+    Note over CsrfFilter: PHÁT HIỆN: Thiếu hoặc sai CSRF Token!
+    CsrfFilter-->>User: 403 Forbidden (CSRF Token Missing / Invalid)
 ```
 
 ##### Chống tấn công BREACH với `XorCsrfTokenRequestAttributeHandler`
@@ -1928,11 +1967,24 @@ Một JSON Web Token bao gồm 3 phần riêng biệt được ngăn cách bởi
 
 $$\text{JWT} = \text{Base64URL}(\text{Header}) \,.\, \text{Base64URL}(\text{Payload}) \,.\, \text{Base64URL}(\text{Signature})$$
 
-```
-  eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjdW9uZyIsImF1dGgiOiJST0xFX1VTRVIiLCJleHAiOjE3MzAyOTAwMDB9.dBjftJeZ...
-  ├───────────────────────────────────┤ ├─────────────────────────────────────────────────────────────┤ ├──────────────┤
-               Header                                              Payload                                  Signature
+![Hình 10: Cấu trúc 3 thành phần của JSON Web Token (Header, Payload Claims, Cryptographic Signature)](images/diagram_10.png)
 
+```mermaid
+flowchart LR
+    subgraph JWT["Cấu trúc JSON Web Token (JWT)"]
+        direction LR
+        H["<b>HEADER</b><br/>Thuật toán & Loại token<br/><code>{ 'alg': 'RS256', 'typ': 'JWT' }</code>"]
+        P["<b>PAYLOAD</b><br/>Dữ liệu Claims<br/><code>{ 'sub': 'cuong', 'auth': 'ROLE_USER', ... }</code>"]
+        S["<b>SIGNATURE</b><br/>Chữ ký số RSA 2048-bit<br/><code>RSASHA256(Header + '.' + Payload, PrivateKey)</code>"]
+        H --- DOT1["."] --- P --- DOT2["."] --- S
+    end
+
+    classDef h fill:#fee2e2,stroke:#dc2626,stroke-width:2px;
+    classDef p fill:#e0e7ff,stroke:#4f46e5,stroke-width:2px;
+    classDef s fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    class H h;
+    class P p;
+    class S s;
 ```
 
 - **Header:** Chứa thuật toán ký (`alg`: `RS256`, `ES256`, hoặc `HS256`) và loại token (`typ`: `JWT`).
@@ -1960,36 +2012,30 @@ Trong hệ thống InstaClone chuẩn doanh nghiệp:
 
 Khi sử dụng thư viện chuẩn `spring-boot-starter-oauth2-resource-server`, Spring Security kích hoạt một chuỗi xử lý tinh gọn:
 
-```
-[ Client Request: GET /api/v1/posts ]
-  Header: "Authorization: Bearer <JWT_STRING>"
-                  │
-                  ▼
-   ┌───────────────────────────────────────────────┐
-   │         BearerTokenAuthenticationFilter       │ Trích xuất chuỗi token từ Header "Authorization"[cite: 1]
-   └──────────────────────┬────────────────────────┘
-                          │
-                          ▼ Gọi authenticationManager.authenticate(new BearerTokenAuthenticationToken(token))
-   ┌───────────────────────────────────────────────┐
-   │          JwtAuthenticationProvider            │ Thực thi xác thực và ánh xạ quyền[cite: 1]
-   └──────────────────────┬────────────────────────┘
-                          │
-         ┌────────────────┴────────────────────────┐
-         │ 1. Giải mã & kiểm tra tính toàn vẹn     │ 2. Chuyển đổi Claims sang GrantedAuthority
-         ▼                                         ▼
-   ┌───────────────────────┐             ┌───────────────────────────────────┐
-   │      JwtDecoder       │             │    JwtAuthenticationConverter     │
-   │ (Kiểm tra chữ ký, exp,│             │ (Ánh xạ Claim "roles" hoặc        │
-   │  iss, và "typ" header)│             │  "scope" thành List<Authority>)   │
-   └───────────────────────┘             └───────────────────────────────────┘
-                          │                                         │
-                          └───────────────────┬─────────────────────┘
-                                              │
-                                              ▼ Trả về JwtAuthenticationToken (isAuthenticated = true)
-   ┌────────────────────────────────────────────────────────────────────────┐
-   │  SecurityContextHolder.getContext().setAuthentication(jwtAuthToken)    │ Lưu vào Context luồng
-   └────────────────────────────────────────────────────────────────────────┘
+![Hình 11: Luồng xử lý xác thực JWT qua BearerTokenAuthenticationFilter và JwtAuthenticationProvider](images/diagram_11.png)
 
+```mermaid
+flowchart TD
+    Req["Client Request: GET /api/v1/posts<br/>Header: Authorization: Bearer &lt;JWT_STRING&gt;"] --> BTAF["BearerTokenAuthenticationFilter<br/><i>(Trích xuất chuỗi token từ Header)</i>"]
+    
+    BTAF -->|"Gọi authenticationManager.authenticate(<br/>new BearerTokenAuthenticationToken(token))"| JAP["JwtAuthenticationProvider<br/><i>(Thực thi xác thực và ánh xạ quyền)</i>"]
+    
+    JAP -->|"1. Giải mã & kiểm tra tính toàn vẹn"| JD["JwtDecoder<br/><i>(Kiểm tra chữ ký số RS256, exp, iss)</i>"]
+    JAP -->|"2. Chuyển đổi Claims sang GrantedAuthority"| JAC["JwtAuthenticationConverter<br/><i>(Ánh xạ Claim 'roles' / 'scope' thành Authorities)</i>"]
+    
+    JD --> Token["JwtAuthenticationToken<br/><b>(isAuthenticated = true)</b>"]
+    JAC --> Token
+    
+    Token --> SCH["SecurityContextHolder.getContext().setAuthentication(jwtAuthToken)<br/><i>(Lưu Authentication vào ThreadLocal context)</i>"]
+
+    classDef filter fill:#e0f2fe,stroke:#0284c7,stroke-width:2px;
+    classDef provider fill:#fef3c7,stroke:#d97706,stroke-width:2px;
+    classDef worker fill:#dbeafe,stroke:#2563eb,stroke-width:2px;
+    classDef token fill:#dcfce7,stroke:#16a34a,stroke-width:2px;
+    class BTAF filter;
+    class JAP provider;
+    class JD,JAC worker;
+    class Token,SCH token;
 ```
 
 1. **`BearerTokenAuthenticationFilter`:** Lọc request, nhận diện tiền tố `Bearer `, tách lấy chuỗi token thô.
@@ -2286,29 +2332,24 @@ OAuth 2.1 là sự củng cố và siết chặt các tiêu chuẩn an toàn t�
 
 - **Bắt buộc PKCE (Proof Key for Code Exchange):** Trước đây PKCE chỉ áp dụng cho Single Page Apps (SPA) và Mobile Apps. Trong OAuth 2.1 và Spring Security 7.x, PKCE là **bắt buộc cho tất cả các luồng Authorization Code**, kể cả Web Apps truyền thống chạy trên server.
 
-```
-  InstaClone Client                   Authorization Server (Google)           InstaClone Backend
-         │                                         │                                  │
-         │ 1. Sinh ngẫu nhiên Code Verifier       │                                  │
-         │    và mã hóa Code Challenge = SHA256(v) │                                  │
-         │                                         │                                  │
-         │ 2. Chuyển hướng đăng nhập:              │                                  │
-         │    /authorize?code_challenge=...        │                                  │
-         │ ──────────────────────────────────────> │                                  │
-         │                                         │                                  │
-         │ 3. Người dùng đồng ý cấp quyền          │                                  │
-         │ <────────────────────────────────────── │                                  │
-         │    Trả về Authorization Code            │                                  │
-         │                                         │                                  │
-         │ 4. Trao đổi Code lấy Token:             │                                  │
-         │    /oauth/token?code=...                │                                  │
-         │    & code_verifier=... (Bí mật gốc)     │                                  │
-         │ ──────────────────────────────────────> │ (Server tự tính SHA256(verifier)│
-         │                                         │  so sánh với code_challenge)     │
-         │                                         │                                  │
-         │ 5. Khớp thành công -> Cấp Access Token  │                                  │
-         │ <────────────────────────────────────── │                                  │
+![Hình 12: Biểu đồ tuần tự quy trình OAuth 2.0 Authorization Code Flow kết hợp PKCE](images/diagram_12.png)
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as InstaClone Client (SPA / Mobile)
+    participant Google as Authorization Server (Google)
+    participant Backend as InstaClone Backend
+
+    Note over Client: 1. Sinh ngẫu nhiên Code Verifier<br/>và tính Code Challenge = Base64Url(SHA256(verifier))
+    Client->>Google: 2. Chuyển hướng đăng nhập: /authorize?<br/>code_challenge=...&code_challenge_method=S256
+    Note over Google: 3. Người dùng đồng ý cấp quyền (Consent)
+    Google-->>Client: Trả về Authorization Code
+    Client->>Google: 4. Trao đổi Code lấy Token: POST /oauth/token<br/>code=... & code_verifier=... (Bí mật gốc)
+    Note over Google: Google tự tính SHA256(code_verifier)<br/>so sánh với code_challenge đã lưu ban đầu
+    Google-->>Client: 5. Khớp thành công -> Cấp Access Token & ID Token
+    Client->>Backend: 6. Truy cập API với Bearer Token
+    Backend-->>Client: 7. Trả dữ liệu được bảo vệ
 ```
 
 _Tác dụng của PKCE:_ Nếu kẻ tấn công trên điện thoại đánh cắp được Authorization Code từ Custom URI Scheme, chúng cũng không thể đổi lấy Token vì không có `code_verifier` ban đầu!
