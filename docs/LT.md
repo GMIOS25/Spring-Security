@@ -4,7 +4,123 @@ _(Nền tảng: Java 21+ | Spring Boot 4.x | Spring Framework 7.x | Spring Secur
 
 ---
 
+## NHẬP MÔN SPRING SECURITY TRƯỚC KHI VIẾT CẤU HÌNH
+
+Phần này trả lời ba việc người học cần hiểu trước khi đọc code: Spring Security là gì, vì sao ứng dụng cần nó và trong tình huống nào việc sử dụng nó có ích. Mục tiêu là biết chọn cơ chế bảo vệ phù hợp với InstaClone và giải thích được lựa chọn đó, rồi mới tìm cách cấu hình.
+
+### 1. Spring Framework Spring Boot và Spring Security
+
+Tên “Spring” có thể chỉ cả hệ sinh thái, nên cần gọi đúng thành phần đang bàn đến.
+
+| Thành phần | Vai trò | Ví dụ trong InstaClone |
+| --- | --- | --- |
+| Spring Framework | Nền tảng xây dựng ứng dụng Java: quản lý đối tượng và phụ thuộc, giao dịch, web và tích hợp. | Kết nối PostController, PostService và PostRepository; quản lý giao dịch khi lưu bài. |
+| Spring Boot | Giúp khởi tạo, cấu hình và chạy ứng dụng Spring thuận tiện qua starter, auto-configuration và công cụ vận hành. | Chạy backend, cấu hình datasource và tích hợp các thư viện theo dependency đã chọn. |
+| Spring Security | Framework xác thực, kiểm soát truy cập và một số cơ chế phòng vệ của ứng dụng. | Xác định ai đang gọi API; kiểm tra người đó có được xóa bài đang yêu cầu hay không. |
+
+Spring Boot không thay thế Spring Framework; nó tổ chức cách sử dụng các thành phần của Spring thuận tiện hơn. Spring Security có thể dùng cùng Boot hoặc trong ứng dụng Spring được cấu hình theo cách khác. Thêm Boot vào dự án chưa có nghĩa là đã thiết kế xong chính sách bảo mật. [1][2][3]
+
+### 2. Spring Security là gì
+
+**Spring Security là framework giúp ứng dụng Java xác thực danh tính và thực thi các quy tắc truy cập.** Framework cung cấp cơ chế dùng lại được; nhóm phát triển xác định ai được làm gì trên tài nguyên nào.
+
+Hai khái niệm trả lời hai nhu cầu khác nhau. **Authentication** kiểm chứng danh tính, chẳng hạn xác minh mật khẩu hoặc JWT. **Authorization** quyết định một thao tác có được phép thực hiện hay không. Alice đăng nhập thành công vẫn không có quyền xóa bài của Bob.
+
+**Chính sách** là quyết định nghiệp vụ “chủ bài hoặc người kiểm duyệt được xóa bài”. **Cơ chế** là cách nhận danh tính, tìm quyền và chặn thao tác khi chính sách không thỏa mãn. Spring Security hỗ trợ thực thi cơ chế; nó không tự suy ra chính sách từ tên endpoint hay các entity của ứng dụng. [3][4]
+
+### 3. Vì sao cần một framework bảo mật
+
+Giả sử giao diện chỉ hiện nút Xóa trên bài của chính Alice. Alice vẫn có thể gửi request trực tiếp tới API với ID bài của Bob. Backend phải tự kiểm tra người gọi và tài nguyên được yêu cầu; giao diện chỉ kiểm soát trải nghiệm sử dụng.
+
+Nếu mỗi Controller tự kiểm tra đăng nhập và quyền bằng các đoạn if/else riêng, nhóm phát triển phải giữ mọi bản kiểm tra nhất quán khi thêm endpoint, thay đổi vai trò hoặc tích hợp SSO. Một chỗ bỏ sót cũng có thể mở đường truy cập ngoài dự kiến. Framework giúp dùng chung cách nhận danh tính, áp dụng chính sách và xử lý yêu cầu bị từ chối.
+
+Giá trị chính là giảm việc tự xây lại các cơ chế bảo mật và tập trung chính sách ở các điểm kiểm soát rõ ràng. Tuy nhiên, một bộ lọc vẫn có thể được ánh xạ sai; một quy tắc quá rộng vẫn cho phép sai đối tượng. Có framework không thay thế việc thiết kế và kiểm thử chính sách. [4][5]
+
+### 4. Khi nào nên dùng Spring và Spring Boot
+
+Spring phù hợp khi đội ngũ chọn Java hoặc Kotlin và ứng dụng có nhiều thành phần cần phối hợp: web, dữ liệu, giao dịch, tích hợp hệ thống và kiểm thử. Một backend nghiệp vụ phát triển lâu dài thường hưởng lợi từ cách quản lý phụ thuộc và hạ tầng dùng chung. Spring Boot giúp giảm phần lắp ghép ban đầu cho lựa chọn đó. [1][2]
+
+Với một script ngắn, công cụ dòng lệnh rất nhỏ hoặc website tĩnh, cả hệ sinh thái Spring có thể lớn hơn nhu cầu. Nếu thời gian khởi động, bộ nhớ hoặc kích thước triển khai là ràng buộc quan trọng, cần đo ứng dụng đại diện trước khi chọn. Đây là quyết định theo yêu cầu và năng lực đội ngũ; không có kết luận rằng mọi dự án Java đều phải dùng Spring.
+
+Đối với InstaClone, giáo trình chọn Spring Boot vì cần backend web, cơ sở dữ liệu, nhiều quy tắc nghiệp vụ và hệ thống test trong cùng một dự án. Đây là lý do của ví dụ xuyên suốt, không phải điều kiện bắt buộc của mọi mạng xã hội.
+
+### 5. Khi nào nên dùng Spring Security
+
+Nên cân nhắc sớm khi ứng dụng Spring có tài khoản, dữ liệu riêng tư, vai trò, quyền sở hữu, API được bảo vệ hoặc đăng nhập qua nhà cung cấp danh tính. Càng nhiều đường vào và chính sách truy cập, việc dùng chung cơ chế càng có giá trị.
+
+Ứng dụng dùng SSO vẫn phải bảo vệ API của mình. Nhà cung cấp danh tính có thể xác thực Alice, nhưng backend InstaClone vẫn phải quyết định Alice có được đọc bài riêng tư hoặc xóa một bài cụ thể hay không. Resource Server có thể kiểm tra token do bên phát hành được tin cậy cấp. [6]
+
+Một endpoint công khai có thể được cấu hình cho phép truy cập ẩn danh; điều đó không có nghĩa toàn bộ ứng dụng phải bỏ cơ chế phòng vệ. Ngược lại, một chương trình không có yêu cầu nhận danh tính hay kiểm soát truy cập không nhất thiết cần cài Spring Security. Hãy bắt đầu từ tài nguyên và rủi ro thực tế, rồi chọn thành phần cần dùng.
+
+### 6. Framework làm phần nào và ứng dụng chịu trách nhiệm phần nào
+
+| Nhu cầu | Spring Security hỗ trợ | Nhóm phát triển vẫn phải quyết định hoặc triển khai |
+| --- | --- | --- |
+| Xác thực | Tích hợp nhiều cơ chế xác thực và ngữ cảnh danh tính. | Nguồn tài khoản, cơ chế đăng nhập, độ tin cậy của issuer và chính sách tài khoản. |
+| Phân quyền | Kiểm soát request và lời gọi method; tích hợp quy tắc tùy chỉnh. | Vai trò, authority, quyền sở hữu và dữ liệu nghiệp vụ cần kiểm tra. |
+| Phòng vệ web | Các cơ chế như CSRF, session fixation và security headers. | Cấu hình theo cách client gửi credential, triển khai HTTPS và kiểm thử hành vi thực tế. |
+| An toàn của sản phẩm | Là một phần trong kiến trúc bảo mật ứng dụng. | Truy vấn an toàn, validation, xử lý file upload, quản lý secret, cập nhật và vận hành. |
+
+Spring Security không tự loại bỏ mọi SQL injection, XSS, lỗi upload hay sai sót phân quyền đối tượng. Một API vẫn có thể nhận sai dữ liệu hoặc trả lộ thông tin dù người gọi đã đăng nhập hợp lệ. Phòng vệ phải được đặt ở những lớp phù hợp với từng rủi ro. [5][7]
+
+### 7. Ưu điểm và giá trị thực tế
+
+**Cơ chế dùng chung giúp chính sách nhất quán hơn.** Nhóm phát triển có thể áp dụng quy tắc cho nhiều endpoint và bổ sung kiểm tra ở service thay vì lặp toàn bộ xử lý xác thực trong mỗi Controller.
+
+**Tích hợp nhiều cách xác thực giúp hệ thống phát triển theo nhu cầu.** Ví dụ học có thể bắt đầu từ tài khoản nội bộ và session, sau đó bổ sung Bearer API hoặc OIDC. Không cần tự viết lại mọi bước xử lý giao thức cho mỗi hướng phát triển. [3][6]
+
+**Khả năng tùy chỉnh và kiểm thử giúp giải thích được quyết định truy cập.** Khi cấu hình và test được tổ chức đúng, nhóm có thể chứng minh cả trường hợp được phép và bị từ chối. Lợi ích này phụ thuộc vào việc test đi qua đúng Filter Chain, converter hoặc service cần kiểm chứng; chỉ dựng mock chưa đủ.
+
+### 8. Nhược điểm chi phí và giới hạn
+
+**Có chi phí học kiến trúc.** Người học phải hiểu thứ tự filter, cách khớp request, ngữ cảnh xác thực và proxy của method security. Cấu hình chạy được chưa chắc đúng phạm vi, nên việc debug lỗi 401, 403 hoặc redirect có thể khó lúc đầu.
+
+**Mặc định và cấu hình cần được hiểu rõ.** Auto-configuration giúp bắt đầu nhanh, nhưng cũng tạo hành vi mà người mới chưa dự đoán được. Thêm dependency có thể khiến endpoint yêu cầu đăng nhập; một cấu hình tự viết có thể thay thế một phần mặc định. Cần đọc đúng tài liệu của phiên bản đang dùng. [8]
+
+**Có chi phí thực thi và bảo trì.** Kiểm tra mật khẩu, chữ ký, quyền và trạng thái có thể tốn CPU hoặc I/O. Băm mật khẩu có chủ đích tiêu tốn tài nguyên để tăng chi phí dò đoán; không nên loại bỏ bảo vệ chỉ để giảm thời gian xử lý. Cần đo tải, chọn tham số phù hợp, theo dõi bản vá và kiểm tra khi nâng phiên bản. Không có một mức overhead cố định đúng cho mọi ứng dụng. [9]
+
+### 9. Chọn cơ chế theo nhu cầu
+
+Với ứng dụng web truyền thống, session có thể là cách dễ quản lý đăng nhập và thu hồi phiên. Khi có Bearer API cho Mobile hoặc nhiều Resource Server, JWT hoặc opaque token là các lựa chọn cần đánh giá. JWT không mặc nhiên nhanh hơn trong mọi hệ thống và không tự giải quyết thu hồi tức thì.
+
+Khi cần SSO, quản lý tài khoản tập trung hoặc nhiều ứng dụng dùng chung danh tính, có thể tích hợp nhà cung cấp danh tính thay vì tự xây toàn bộ hệ thống phát hành danh tính. API Gateway có thể thêm kiểm soát tại cửa vào; ứng dụng vẫn cần kiểm tra quyền nghiệp vụ đối với bài viết và dữ liệu cụ thể.
+
+Những lựa chọn này có thể phối hợp. InstaClone dùng cơ chế nào phải xuất phát từ loại client, nơi lưu trạng thái, yêu cầu thu hồi và mức bảo vệ thao tác nhạy cảm, không xuất phát từ mong muốn sử dụng càng nhiều công nghệ càng tốt. [6][10]
+
+### 10. Cách học và ra quyết định trong giáo trình
+
+Trước mỗi cấu hình, hãy viết một câu chính sách có đủ **chủ thể – hành động – tài nguyên – điều kiện**. Ví dụ: “Alice chỉ được xóa bài khi là tác giả; moderator có quyền xóa mọi bài theo chính sách kiểm duyệt”. Sau đó xác định bằng chứng nhận danh tính và nơi kiểm tra chính sách. Cuối cùng mới chọn API của framework và viết test.
+
+Mỗi chương phía sau có phần định hướng WHAT/WHY trước các mục cơ chế và code. Sau khi học, người đọc cần giải thích được khái niệm, lý do lựa chọn, trường hợp không cần cơ chế đó và giới hạn của nó. Câu hỏi tự kiểm tra: nếu bỏ cơ chế đang học, điều gì có thể sai; nếu thay bằng cơ chế khác, ta đổi lấy lợi ích và chi phí nào?
+
+### Nguồn đối chiếu cho phần nhập môn
+
+1. [Spring Framework overview](https://spring.io/projects/spring-framework/)
+2. [Spring Boot overview](https://spring.io/projects/spring-boot/)
+3. [Spring Security overview](https://spring.io/projects/spring-security/)
+4. [Spring Security architecture](https://docs.spring.io/spring-security/reference/servlet/architecture.html)
+5. [Method Security](https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html)
+6. [OAuth2 Resource Server](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html)
+7. [Spring Security FAQ và phạm vi bảo vệ](https://docs.spring.io/spring-security/reference/servlet/appendix/faq.html)
+8. [Hello Spring Security và hành vi mặc định](https://docs.spring.io/spring-security/reference/servlet/getting-started.html)
+9. [Password Storage và chi phí kiểm tra mật khẩu](https://docs.spring.io/spring-security/reference/features/authentication/password-storage.html)
+10. [Authentication Persistence and Session Management](https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html)
+
+---
+
 ## CHƯƠNG 1: NỀN TẢNG TƯ DUY BẢO MẬT WEB & RANH GIỚI KIẾN TRÚC
+
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 1
+
+**WHAT — Khái niệm đang học.** Ranh giới tin cậy là điểm hệ thống cần kiểm tra dữ liệu và bằng chứng từ bên ngoài. Authentication xác minh danh tính; authorization xét thao tác trên tài nguyên. Servlet Filter và HandlerInterceptor là các vị trí can thiệp request có phạm vi khác nhau.
+
+**WHY — Vấn đề cần giải quyết.** InstaClone có endpoint công khai lẫn thao tác chỉ chủ bài hoặc moderator được làm. Nếu chưa phân biệt danh tính với quyền và chưa biết request đi qua đâu, một kiểm tra đặt sai vị trí có thể bỏ sót đường truy cập.
+
+**Khi nào dùng.** Dùng tư duy ranh giới ngay khi thiết kế endpoint và dữ liệu cần bảo vệ. Lớp bảo vệ HTTP cần đi cùng kiểm tra nghiệp vụ ở service; method security là lớp bổ sung có giá trị, không phải cơ chế vô ích.
+
+**Đánh đổi và giới hạn.** Đặt kiểm soát ở nhiều lớp giúp bao phủ nhiều đường gọi nhưng cần phân định trách nhiệm để tránh chính sách mâu thuẫn. Filter chỉ bảo vệ request thực sự đi qua phạm vi đã cấu hình.
+
+**Câu hỏi trước khi xem code.** Alice đã đăng nhập nhưng thay ID bài của Bob trong request DELETE. Còn phải kiểm tra điều gì và tại lớp nào?
 
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
@@ -274,6 +390,18 @@ public class FragileSecurityInterceptor implements HandlerInterceptor {
 ---
 
 ## CHƯƠNG 2: KIẾN TRÚC FILTER CHAIN & CẤU HÌNH HIỆN ĐẠI SPRING SECURITY 7.x
+
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 2
+
+**WHAT — Khái niệm đang học.** SecurityFilterChain là chuỗi các filter bảo mật được chọn cho một request. RequestMatcher mô tả phạm vi request; quy tắc authorization mô tả điều kiện cho phép trong phạm vi đó.
+
+**WHY — Vấn đề cần giải quyết.** Web dùng cookie, API dùng Bearer và endpoint công khai có thể cần hành vi khác nhau. Một chỗ cấu hình nhất quán giúp kiểm soát các đường vào và truy được nguyên nhân request bị chặn trước Controller.
+
+**Khi nào dùng.** Bắt đầu bằng một chain dễ giải thích; chỉ tách nhiều chain khi có khác biệt rõ về phạm vi hoặc cơ chế bảo vệ. Trước khi thêm custom filter, kiểm tra framework đã cung cấp chức năng tương ứng hay chưa.
+
+**Đánh đổi và giới hạn.** Nhiều chain và custom filter tăng khả năng tùy chỉnh nhưng làm thứ tự và phạm vi khó theo dõi. Chain khớp đầu tiên có ý nghĩa quyết định; không có chain khớp có thể để request ngoài bảo vệ.
+
+**Câu hỏi trước khi xem code.** Vì sao endpoint permitAll vẫn có thể đi qua các filter và vì sao thứ tự chain ảnh hưởng đến bảo mật?
 
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
@@ -599,6 +727,18 @@ public FilterRegistrationBean<InstaRateLimitFilter> disableAutomaticRegistration
 ---
 
 ## CHƯƠNG 3: QUẢN LÝ DANH TÍNH & MÃ HÓA MẬT KHẨU AN TOÀN
+
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 3
+
+**WHAT — Khái niệm đang học.** Password hashing là phép biến đổi một chiều để lưu và đối chiếu mật khẩu; PasswordEncoder là abstraction thực hiện công việc đó. Hash dùng cho mật khẩu cần salt và chi phí tính toán phù hợp.
+
+**WHY — Vấn đề cần giải quyết.** Nếu kho tài khoản bị lộ, lưu mật khẩu nguyên văn làm người dùng mất ngay bí mật đăng nhập. Salt giảm khả năng dùng kết quả tính sẵn chung; thuật toán thích nghi làm mỗi lần đoán tốn tài nguyên hơn.
+
+**Khi nào dùng.** Ứng dụng tự quản lý mật khẩu cần băm trước khi lưu và kiểm tra qua cơ chế tương ứng. Nếu chỉ dùng nhà cung cấp danh tính, không cần thu thập thêm mật khẩu của nhà cung cấp về InstaClone.
+
+**Đánh đổi và giới hạn.** Chi phí băm tăng khả năng chống dò nhưng ảnh hưởng thời gian đăng nhập và tải hệ thống. Cần đo tham số trên môi trường đích; không dùng hash nhanh thông thường hoặc tự thiết kế mật mã để thay thế.
+
+**Câu hỏi trước khi xem code.** Vì sao hai người có cùng mật khẩu vẫn nên có chuỗi băm khác nhau và vì sao không thể ưu tiên hash nhanh nhất?
 
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
@@ -930,6 +1070,18 @@ public class AuthRegistrationController {
 ---
 
 ## CHƯƠNG 4: CƠ CHẾ XÁC THỰC (AUTHENTICATION FLOW) & SECURITY CONTEXT
+
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 4
+
+**WHAT — Khái niệm đang học.** Authentication là kết quả xử lý bằng chứng xác thực. SecurityContext giữ kết quả để các bước phía sau biết danh tính đang thao tác; SecurityContextRepository quyết định việc lưu hoặc khôi phục kết quả giữa các request.
+
+**WHY — Vấn đề cần giải quyết.** Đăng nhập thành công ở request hiện tại chưa tự giải thích vì sao request kế tiếp nhận ra người dùng. Nếu quên lưu hoặc dọn ngữ cảnh đúng cách, hệ thống có thể mất đăng nhập hoặc dùng sai thông tin danh tính.
+
+**Khi nào dùng.** Cần hiểu cơ chế này khi xây login bằng session, viết cơ chế xác thực tùy chỉnh hoặc debug sự khác biệt giữa request. Với Bearer API stateless, mỗi request có thể xác thực lại từ token thay vì khôi phục phiên.
+
+**Đánh đổi và giới hạn.** Lưu trạng thái giúp quản lý phiên tập trung nhưng phải xử lý hết hạn và thu hồi. Xác thực từng request giảm phụ thuộc phiên bảo mật nhưng vẫn cần quản lý token và nguồn tin cậy.
+
+**Câu hỏi trước khi xem code.** Một login API trả 200 nhưng request ngay sau vẫn bị xem là anonymous. Những thành phần nào cần được kiểm tra?
 
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
@@ -1358,6 +1510,18 @@ public class AuthenticationController {
 
 ## CHƯƠNG 5: PHÂN QUYỀN ĐA TẦNG VỚI AUTHORIZATIONMANAGER & CHỐNG BOLA/IDOR
 
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 5
+
+**WHAT — Khái niệm đang học.** Authorization là quyết định cho phép một danh tính làm một hành động trên một tài nguyên. Role và authority là đầu vào của quyết định; quyền sở hữu là điều kiện nghiệp vụ gắn với đối tượng cụ thể.
+
+**WHY — Vấn đề cần giải quyết.** Một USER được phép gọi API xóa bài chưa đồng nghĩa được xóa bài của mọi người. Thiếu kiểm tra đối tượng có thể dẫn tới BOLA/IDOR ngay cả khi login và JWT đều hoạt động đúng.
+
+**Khi nào dùng.** Dùng kiểm soát request cho quy tắc ở cửa vào và method hoặc service để xét dữ liệu nghiệp vụ cần thiết. Bật method security khi dùng annotation; kiểm tra phải đi qua cơ chế proxy hoặc cách tích hợp đã chọn.
+
+**Đánh đổi và giới hạn.** Quy tắc chi tiết diễn đạt đúng nghiệp vụ hơn nhưng có thể cần truy vấn và dữ liệu bổ sung. Cần kiểm thử cả cho phép lẫn từ chối và bảo đảm việc kiểm tra đi trước thao tác thay đổi dữ liệu.
+
+**Câu hỏi trước khi xem code.** Vì sao ẩn nút Xóa và kiểm tra ROLE_USER đều chưa chứng minh Bob không xóa được bài của Alice?
+
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
 #### Bài toán thực tế trên mạng xã hội InstaClone
@@ -1688,6 +1852,18 @@ public class PostService {
 
 ## CHƯƠNG 6: QUẢN LÝ SESSION & PHÒNG THỦ LỖ HỔNG WEB (CSRF, CORS, HEADERS)
 
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 6
+
+**WHAT — Khái niệm đang học.** Session liên kết các request với một ngữ cảnh phía máy chủ. CSRF, CORS và security headers xử lý các rủi ro hoặc hành vi khác nhau của trình duyệt; chúng không phải các tên gọi cho cùng một lớp bảo vệ.
+
+**WHY — Vấn đề cần giải quyết.** Cookie có thể được trình duyệt gửi tự động; trang khác có thể kích hoạt request ngoài ý muốn. Quyền gọi chéo nguồn và quyền thực thi nghiệp vụ cũng cần được phân biệt để không dùng nhầm CORS làm xác thực.
+
+**Khi nào dùng.** Chọn CSRF theo cách credential được gửi. Với cookie xác thực, cần cơ chế chống CSRF phù hợp; với API chỉ nhận Bearer header do client chủ động gắn, đánh giá riêng. CORS cần khi trình duyệt gọi API khác origin.
+
+**Đánh đổi và giới hạn.** Thêm token CSRF, quản lý phiên và chính sách origin làm client phức tạp hơn nhưng phục vụ những rủi ro cụ thể. Tắt một cơ chế phải dựa trên mô hình đe dọa, không dựa đơn thuần vào nhãn REST hoặc SPA.
+
+**Câu hỏi trước khi xem code.** JWT được đặt trong cookie và JWT được gửi qua Authorization header khác nhau thế nào khi đánh giá CSRF?
+
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
 #### Bài toán thực tế trên mạng xã hội InstaClone
@@ -1936,6 +2112,18 @@ public class CsrfController {
 ---
 
 ## CHƯƠNG 7: KIẾN TRÚC STATELESS REST API & XÁC THỰC JWT RESOURCE SERVER
+
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 7
+
+**WHAT — Khái niệm đang học.** JWT là định dạng mang claims; Resource Server kiểm tra token trước khi bảo vệ API. Stateless authentication mô tả cách xử lý ngữ cảnh xác thực giữa request, không có nghĩa toàn bộ ứng dụng không có trạng thái.
+
+**WHY — Vấn đề cần giải quyết.** Nhiều client và service cần một cách mang bằng chứng truy cập rõ ràng. Token có thể hỗ trợ xác minh cục bộ, nhưng giá trị đó phải cân bằng với nhu cầu cập nhật quyền và thu hồi khi token bị lộ.
+
+**Khi nào dùng.** Cân nhắc Bearer API khi có Mobile, nhiều Resource Server hoặc bên phát hành danh tính tập trung. Với web truyền thống, session vẫn có thể phù hợp; JWT không phải điều kiện bắt buộc để dùng Spring Security.
+
+**Đánh đổi và giới hạn.** JWT giảm nhu cầu tra phiên khi xác thực cục bộ nhưng đòi hỏi quản lý khóa, issuer, audience và vòng đời token. Denylist hoặc introspection hỗ trợ trạng thái mới hơn nhưng thêm I/O và phụ thuộc dịch vụ.
+
+**Câu hỏi trước khi xem code.** Nếu người dùng đăng xuất ngay sau khi được cấp JWT, điều gì làm access token còn hạn bị vô hiệu hóa ngay?
 
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
@@ -2296,6 +2484,18 @@ public class JwtTokenService {
 ---
 
 ## CHƯƠNG 8: KIẾN TRÚC HIỆN ĐẠI TRONG SPRING SECURITY 7.x (OAUTH 2.1, MFA, OTT) & KIỂM THỬ BẢO MẬT
+
+### 0. KHÁI NIỆM VÀ LÝ DO HỌC CHƯƠNG 8
+
+**WHAT — Khái niệm đang học.** OAuth2 phục vụ ủy quyền; OIDC bổ sung lớp danh tính. MFA yêu cầu nhiều bằng chứng phù hợp; OTT là một cách dùng token một lần. Security testing kiểm chứng hành vi trong phạm vi cấu hình và thành phần được nạp vào test.
+
+**WHY — Vấn đề cần giải quyết.** InstaClone cần đăng nhập thuận tiện, bảo vệ thao tác rủi ro và bằng chứng rằng chính sách vẫn đúng sau thay đổi. Đây là các nhu cầu khác nhau nên một Social Login hoặc một test xanh không tự đáp ứng tất cả.
+
+**Khi nào dùng.** Dùng OIDC khi cần đăng nhập qua nhà cung cấp danh tính, dùng xác thực bổ sung theo rủi ro và chọn mức test theo cơ chế cần chứng minh. Không bắt mọi thao tác công khai phải qua MFA chỉ vì framework hỗ trợ.
+
+**Đánh đổi và giới hạn.** SSO thêm phụ thuộc provider; MFA tạo thêm bước và yêu cầu phục hồi tài khoản. Mock giúp test nhanh nhưng có thể bỏ qua chữ ký JWT hoặc logic sở hữu; test tích hợp cần thiết ở các ranh giới đó.
+
+**Câu hỏi trước khi xem code.** Test jwt() đã chứng minh chữ ký hợp lệ chưa, và chỉ có FACTOR_OTT đã đủ để kết luận MFA chưa?
 
 ### 1. ĐẶT VẤN ĐỀ & CÂU HỎI TRỌNG TÂM
 
