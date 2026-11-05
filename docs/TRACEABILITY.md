@@ -8,7 +8,7 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 1 §2.2 (L165–206) | Servlet Filter đứng trước DispatcherServlet; Interceptor không bảo vệ tài nguyên ngoài MVC | `infrastructure.security.antipattern.FragileSecurityInterceptor`, `infrastructure.security.config.SecurityConfig` | `AntiPatternInterceptorTest`, `StaticResourceProtectedTest`, `FirewallVsInterceptorTest` | ✅ |
 | 1 §2.3 (L208–214) | Least privilege, deny-by-default, `POST_DELETE_ANY` | `infrastructure.security.config.SecurityConfig` | `DenyByDefaultTest`, `BolaDeleteTest` | ✅ |
 | 1 Bẫy 1 (L371) | 401 Unauthorized ≠ 403 Forbidden | `infrastructure.security.config.SecurityConfig`, `presentation.controller.ModerationController` | `StatusSemanticsTest` | ✅ |
-| 1 Bẫy 2 (L376) | Không tin Frontend → BOLA / IDOR | `application.service.PostService` (Phase 5) | `BolaDeleteTest` | ⬜ |
+| 1 Bẫy 2 (L376) | Không tin Frontend → BOLA / IDOR | `application.service.PostService`, `infrastructure.security.evaluator.PostSecurityEvaluator` | `BolaDeleteTest` | ✅ |
 | 1 Q1, Q2 (L385–386) | 401 vs 403; filter đặt sau DispatcherServlet | `infrastructure.security.config.SecurityConfig` | `StatusSemanticsTest`, `FilterChainIntrospectionTest` + `docs/QA.md` | ✅ |
 | 2 §2.1 (L434–493) | DelegatingFilterProxy → FilterChainProxy → SecurityFilterChain, khớp chain đầu tiên | `infrastructure.security.config.SecurityChainsConfig` | `FilterChainIntrospectionTest` | ✅ |
 | 2 §2.2 (L497–509) | PathPatternRequestMatcher; Lambda DSL, không `.and()`; `Customizer<HttpSecurity>` | `infrastructure.security.config.SecurityChainsConfig`, `ModularSecurityConfig` | `RemovedApisClaimsTest`, `ModularCustomizerTest` | ✅ |
@@ -27,11 +27,11 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 4 §2.3 (L1211–1213) | Tuần tự hoá phiên bằng Jackson 3 | Đang chờ | ST-1 `Jackson3SessionSerializationTest` (stretch) | ⬜ |
 | 4 Bẫy 1, 2, 3 (L1477–1499) | Quên Explicit Save; Username Enumeration; mất context khi `@Async` | `presentation.controller.AuthenticationController`, `infrastructure.security.config.AsyncConfig`, `application.service.AsyncDemoService` | `ForgetfulLoginTest`, `UsernameEnumerationTest`, `AsyncContextPropagationTest` | ✅ |
 | 4 Q1, Q2 (L1505–1507) | UDS chỉ nhận username; credentials bị xoá | `infrastructure.security.service.InstaCloneUserDetailsService` | `docs/QA.md`, `CredentialsErasedTest` | ✅ |
-| 5 §2.1 (L1559–1613) | `AuthorizationManager` thay `AccessDecisionManager` | Đang chờ | `AuthorizationManagerClaimsTest` | ⬜ |
-| 5 §2.2 (L1615–1621) | `hasRole` (tự thêm `ROLE_`) vs `hasAuthority` | Đang chờ | `HasRoleVsHasAuthorityTest` | ⬜ |
-| 5 §2.3, §3 (L1623–1815) | Method security qua AOP; chống BOLA bằng `@PreAuthorize` | Đang chờ | `BolaDeleteTest`, `PostVisibilityTest`, `ResponseHasNoSensitiveDataTest` | ⬜ |
-| 5 Bẫy 1, 2, 3 (L1823–1839) | Self-invocation; 403 vs 404; `@PostAuthorize` trên thao tác ghi | Đang chờ | `SelfInvocationTest`, `PostVisibilityTest`, `PostAuthorizeOnWriteTest` | ⬜ |
-| 5 Q1, Q2 (L1845–1847) | Phương thức private + AOP; chi phí SpEL | Đang chờ | `docs/QA.md` | ⬜ |
+| 5 §2.1 (L1559–1613) | `AuthorizationManager` thay `AccessDecisionManager` | `infrastructure.security.config.SecurityChainsConfig` | `AuthorizationManagerClaimsTest` | ✅ |
+| 5 §2.2 (L1615–1621) | `hasRole` (tự thêm `ROLE_`) vs `hasAuthority` | `antipattern.RoleVsAuthorityDemoService` | `HasRoleVsHasAuthorityTest` | ✅ |
+| 5 §2.3, §3 (L1623–1815) | Method security qua AOP; chống BOLA bằng `@PreAuthorize` | `application.service.PostService`, `infrastructure.security.evaluator.PostSecurityEvaluator`, `presentation.controller.PostController` | `BolaDeleteTest`, `PostVisibilityTest`, `ResponseHasNoSensitiveDataTest` | ✅ |
+| 5 Bẫy 1, 2, 3 (L1823–1839) | Self-invocation; 403 vs 404; `@PostAuthorize` trên thao tác ghi | `antipattern.SelfInvocationDemo`, `antipattern.PostAuthorizeOnWriteDemo`, `application.service.PostService` | `SelfInvocationTest`, `PostVisibilityTest`, `PostAuthorizeOnWriteTest` | ✅ |
+| 5 Q1, Q2 (L1845–1847) | Phương thức private + AOP; chi phí SpEL | `docs/QA.md` | `docs/QA.md` | ✅ |
 | 6 §2.1 (L1898–1931) | Synchronizer Token; XOR masking chống BREACH | Đang chờ | `CsrfProtectionTest`, `CsrfAttackSimulationTest` | ⬜ |
 | 6 §2.2 (L1933–1939) | Session fixation; giới hạn phiên đồng thời | Đang chờ | `SessionFixationTest`, `ConcurrentSessionTest` | ⬜ |
 | 6 §2.3 (L1941–1947) | CORS, preflight, thứ tự `CorsFilter` | Đang chờ | `CorsPreflightTest` | ⬜ |
