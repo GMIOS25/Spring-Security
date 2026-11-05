@@ -20,7 +20,7 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 3 §2.2 (L778–826) | `DelegatingPasswordEncoder`, tiền tố `{id}`, `upgradeEncoding` | `infrastructure.security.config.PasswordEncoderConfig` | `EncodingUpgradeTest` | ✅ |
 | 3 §2.3 (L828–866) | Cấu trúc 60 ký tự của BCrypt | `infrastructure.security.config.PasswordEncoderConfig` | `PasswordEncodingTest` | ✅ |
 | 3 §3 (L870–1037) | Đăng ký + mã hoá một lần ở Service | `application.service.UserService`, `presentation.controller.AuthRegistrationController` | `RegisterApiTest` | ✅ |
-| 3 Bẫy 1, 2, 3 (L1043–1059) | Thiếu prefix; double encoding; cost quá cao | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | ✅ |
+| 3 Bẫy 1, 2, 3 (L1043–1059) | Thiếu prefix; double encoding; cost quá cao | `infrastructure.security.config.PasswordEncoderConfig`, `application.service.UserService` | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | ✅ |
 | 3 Q1, Q2 (L1065–1066) | Re-encode khi cập nhật hồ sơ; timing attack | `application.service.UserService` | `DoubleEncodingTest`, `docs/QA.md` | ✅ |
 | 4 §2.1–2.2 (L1113–1194) | Authentication, ProviderManager, DaoAuthenticationProvider, UDS, PasswordEncoder | `infrastructure.security.service.InstaCloneUserDetailsService`, `infrastructure.security.model.InstaCloneUserDetails`, `infrastructure.security.config.AuthenticationManagerConfig` | `LoginFlowTest`, `CredentialsErasedTest` (+ D20 trong `docs/QA.md`) | ✅ |
 | 4 §2.3 (L1196–1209) | `ThreadLocal`, `SecurityContextHolderFilter`, Explicit Save, dọn context | `presentation.controller.AuthenticationController` | `SecurityContextIsolationTest`, `ForgetfulLoginTest` | ✅ |
@@ -50,4 +50,4 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 8 §2.3 (L2568–2575) | One-Time Token, chống replay | `infrastructure.security.ott.MagicLinkMailer`, `infrastructure.security.config.SecurityChainsConfig` | `OttLoginFlowTest` | ✅ |
 | 8 §2.4, §3.3 (L2577–2790) | `@WithMockUser`, `@WithUserDetails`, `jwt()`, MockMvc | `presentation.controller.PostController`, `infrastructure.security.model.InstaCloneUserDetails` | `PostControllerSecurityTest`, `TestPrincipalTypesTest` | ✅ |
 | 8 Bẫy 1, 2, 3 (L2798–2824) | Thiếu CSRF trong test; sai kiểu principal; redirect URI lỏng | `infrastructure.security.config.SecurityChainsConfig` | `CsrfInTestsTest`, `TestPrincipalTypesTest`, `OAuth2LoginPkceTest` | ✅ |
-| 8 Q1, Q2 (L2830–2831) | `@WebMvcTest` vs `@SpringBootTest`; Magic Link GET vs POST | `WebMvcSliceVsFullStackTest`, `WebMvcSliceMockBypassesAopTest` | `WebMvcSliceVsFullStackTest`, `OttLoginFlowTest` + `docs/QA.md` | ✅ |
+| 8 Q1, Q2 (L2830–2831) | `@WebMvcTest` vs `@SpringBootTest`; Magic Link GET vs POST | `infrastructure.security.config.SecurityChainsConfig`, `infrastructure.security.ott.MagicLinkMailer` | `WebMvcSliceVsFullStackTest`, `OttLoginFlowTest` + `docs/QA.md` | ✅ |

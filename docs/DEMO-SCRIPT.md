@@ -42,17 +42,23 @@ curl -i -X GET http://localhost:8080/api/v1/feed/public/explore
 - **Kết quả mong đợi:** HTTP `200 OK` (JSON danh sách bài viết công khai, không yêu cầu session hay token).
 
 ### Kịch bản 2.2: Rate Limit chặn spam request -> 429 Too Many Requests
-Gửi nhiều request liên tục vượt quá ngưỡng cho phép (mặc định 60 req/phút):
+Gửi nhiều request liên tục vượt quá ngưỡng cho phép (mặc định 60 req/phút). Có thể thực hiện qua Bearer JWT (Chain 2) hoặc Session kèm CSRF token (Chain 3):
 ```bash
+# Lấy Bearer JWT của alice (Chain 2)
+ACCESS_TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","password":"Password123!"}' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
+
+# Bắn 65 request liên tiếp trong cùng 1 phút
 for i in {1..65}; do
   curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/api/v1/posts \
-    -u alice:Password123! \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"caption":"spam","imageUrl":"https://img/s.jpg"}'
 done
 ```
-- **Kết quả mong đợi:** Các request đầu trả về 201/success; khi vượt ngưỡng 60 req/phút, hệ thống trả về HTTP `429 Too Many Requests` kèm JSON:
-  `{"error":"TOO_MANY_REQUESTS","message":"Rate limit exceeded. Please wait a moment."}`
+- **Kết quả mong đợi:** 60 request đầu tiên trả về HTTP `201 Created`; từ request thứ 61 trở đi trong cùng phút, hệ thống trả về HTTP `429 Too Many Requests` kèm JSON:
+  `{"error":"TOO_MANY_REQUESTS","message":"InstaClone rate limit exceeded. Please wait a moment before trying again."}`
 
 ---
 

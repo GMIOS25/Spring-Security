@@ -68,7 +68,7 @@ Tài liệu này tổng hợp giải đáp cho 16 câu hỏi tư duy chuyên sâ
 
 ### Câu 5.1: Tại sao @PreAuthorize trên phương thức private vô hiệu? Giải pháp AspectJ
 - **Trả lời:** Spring AOP mặc định sử dụng cơ chế Dynamic Proxy (CGLIB hoặc JDK dynamic proxy) bọc bên ngoài Spring Bean để chặn lời gọi phương thức từ bên ngoài. Proxy chỉ có thể override các phương thức `public`; phương thức `private`/`protected` không thể bị override nên proxy bị bỏ qua hoàn toàn. Để bảo vệ phương thức `private`, phải sử dụng AspectJ Bytecode Weaving (chèn mã kiểm tra phân quyền trực tiếp vào file class lúc biên dịch hoặc load-time).
-- **Dẫn chiếu file & test:** `SelfInvocationDemo.java`; kiểm chứng thực nghiệm tại `SelfInvocationTest.java` và `WebMvcSliceMockBypassesAopTest.java`.
+- **Dẫn chiếu file & test:** `SelfInvocationDemo.java`; kiểm chứng thực nghiệm tại `SelfInvocationTest.java` và `WebMvcSliceVsFullStackTest.java` (lớp lồng `WebMvcSliceTest`).
 
 ### Câu 5.2: Chi phí hiệu năng của SpEL khi tải 100,000 req/s và giải pháp tối ưu DB lookup
 - **Trả lời:** SpEL đánh giá biểu thức động qua Reflection làm tốn CPU; việc truy vấn DB trong `PostSecurityEvaluator.isOwner()` ở mỗi request gây nghẽn kết nối database. Giải pháp tối ưu: (1) Bật SpEL Compiler (`SpelCompilerMode.IMMEDIATE`) để biên dịch biểu thức thành bytecode; (2) Sử dụng bộ nhớ đệm phân tán L2 Cache (Redis/Caffeine) cho quan hệ `postId -> ownerId`; (3) Nhúng trực tiếp quyền sở hữu vào token hoặc kiểm tra quyền sở hữu ở tầng truy vấn SQL (`WHERE id = :id AND author = :user`).
@@ -104,7 +104,7 @@ Tài liệu này tổng hợp giải đáp cho 16 câu hỏi tư duy chuyên sâ
 
 ### Câu 8.1: Khác biệt giữa @WebMvcTest và @SpringBootTest(webEnvironment = RANDOM_PORT)
 - **Trả lời:** `@WebMvcTest` là kiểm thử lát cắt (Slice Test), chỉ nạp Controller và MockMvc; bean nghiệp vụ phải mock bằng `@MockitoBean`. Mockito mock bypass hoàn toàn AOP Proxy của Spring Security, che giấu lỗi thiếu `@PreAuthorize`. Ngược lại, `@SpringBootTest(webEnvironment = RANDOM_PORT)` khởi chạy toàn bộ ApplicationContext, nhúng Tomcat thật và Servlet Filter Chain thật, kết nối HTTP Socket thật bằng `HttpClient`, phản ánh 100% môi trường runtime.
-- **Dẫn chiếu file & test:** `WebMvcSliceMockBypassesAopTest.java`; kiểm chứng thực nghiệm tại `WebMvcSliceVsFullStackTest.java`.
+- **Dẫn chiếu file & test:** `WebMvcSliceVsFullStackTest.java` (lớp lồng `WebMvcSliceTest` và `FullStackTest`); kiểm chứng thực nghiệm tại `WebMvcSliceVsFullStackTest.java`.
 
 ### Câu 8.2: Rủi ro OTT qua GET Magic Link vs POST body, rò rỉ log, giải pháp Spring Security 7.x
 - **Trả lời:** Token gửi qua URL query trong GET (`/login/ott?token=XYZ`) sẽ bị lưu nguyên văn trong Web Server Access Logs, Proxy Logs, Browser History và rò rỉ qua header `Referer`. Spring Security 7.x giải quyết bằng luồng 2 bước: Bước 1 (GET `/login/ott?token=...`) chỉ render form xác nhận và CHƯA tiêu thụ token; Bước 2 (POST `/login/ott`) gửi token trong body để tiêu thụ và vô hiệu hóa token ngay lập tức (chống replay).

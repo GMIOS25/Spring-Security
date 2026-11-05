@@ -62,7 +62,7 @@ Tất cả người dùng mẫu đều có mật khẩu chung: `Password123!` (�
 | `GET` | `/api/v1/auth/me`, `/api/v1/users/me` | 2 hoặc 3 | `authenticated` (đọc claim từ JWT hoặc Principal session) | 2, 4, 7 |
 | `POST` | `/api/v1/posts` | 2 hoặc 3 | `authenticated` + Giới hạn tần suất (`InstaRateLimitFilter`) | 2, 6 |
 | `GET` | `/api/v1/posts/{id}` | 2 hoặc 3 | `authenticated` + Chính sách ẩn tài nguyên (BOLA Bẫy 2: giấu tồn tại → 404) | 5 |
-| `DELETE` | `/api/v1/posts/{id}` | 2 hoặc 3 | `@PreAuthorize("@postSecurity.isOwner(#id, auth) or hasAuthority('POST_DELETE_ANY')")` | 5, 8 |
+| `DELETE` | `/api/v1/posts/{id}` | 2 hoặc 3 | `@PreAuthorize("@postSecurity.isOwner(#postId, authentication) or hasAuthority('POST_DELETE_ANY')")` | 5, 8 |
 | `POST` | `/api/v1/posts/{id}/comments` | 2 hoặc 3 | `authenticated` + Giới hạn tần suất | 2, 6 |
 | `GET` | `/api/v1/moderation/reports` | 2 hoặc 3 | `hasAnyRole('MODERATOR', 'ADMIN')` | 2, 5, 7 |
 | `POST` | `/ott/generate` | 3 | `permitAll` (cần CSRF), sinh One-Time Token gửi qua email | 8 |
