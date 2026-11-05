@@ -16,12 +16,12 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 2 Bẫy 1 (L694) | Filter chạy đúp khi đăng ký thành Bean | `infrastructure.security.config.SecurityChainsConfig` | `FilterRunsOnceTest` | ✅ |
 | 2 Bẫy 2 (L714) | Thứ tự rule: cụ thể trước, tổng quát sau | `infrastructure.security.config.SecurityChainsConfig` | `AuthorizationRuleOrderTest` | ✅ |
 | 2 Q1, Q2 (L724–725) | `permitAll` vẫn đi qua filter; nhiều chain + `@Order` | `infrastructure.security.config.SecurityChainsConfig` | `PermitAllStillTraversesFilterChainTest`, `FilterChainIntrospectionTest` | ✅ |
-| 3 §2.1 (L767–776) | Salt ngẫu nhiên, slow hashing, work factor | Đang chờ | `PasswordEncodingTest`, `CostFactorBenchmarkTest` | ⬜ |
-| 3 §2.2 (L778–826) | `DelegatingPasswordEncoder`, tiền tố `{id}`, `upgradeEncoding` | Đang chờ | `EncodingUpgradeTest` | ⬜ |
-| 3 §2.3 (L828–866) | Cấu trúc 60 ký tự của BCrypt | Đang chờ | `PasswordEncodingTest` | ⬜ |
-| 3 §3 (L870–1037) | Đăng ký + mã hoá một lần ở Service | Đang chờ | `RegisterApiTest` | ⬜ |
-| 3 Bẫy 1, 2, 3 (L1043–1059) | Thiếu prefix; double encoding; cost quá cao | Đang chờ | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | ⬜ |
-| 3 Q1, Q2 (L1065–1066) | Re-encode khi cập nhật hồ sơ; timing attack | Đang chờ | `DoubleEncodingTest`, `docs/QA.md` | ⬜ |
+| 3 §2.1 (L767–776) | Salt ngẫu nhiên, slow hashing, work factor | `infrastructure.security.config.PasswordEncoderConfig` | `PasswordEncodingTest`, `CostFactorBenchmarkTest` | ✅ |
+| 3 §2.2 (L778–826) | `DelegatingPasswordEncoder`, tiền tố `{id}`, `upgradeEncoding` | `infrastructure.security.config.PasswordEncoderConfig` | `EncodingUpgradeTest` | ✅ |
+| 3 §2.3 (L828–866) | Cấu trúc 60 ký tự của BCrypt | `infrastructure.security.config.PasswordEncoderConfig` | `PasswordEncodingTest` | ✅ |
+| 3 §3 (L870–1037) | Đăng ký + mã hoá một lần ở Service | `application.service.UserService`, `presentation.controller.AuthRegistrationController` | `RegisterApiTest` | ✅ |
+| 3 Bẫy 1, 2, 3 (L1043–1059) | Thiếu prefix; double encoding; cost quá cao | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | ✅ |
+| 3 Q1, Q2 (L1065–1066) | Re-encode khi cập nhật hồ sơ; timing attack | `application.service.UserService` | `DoubleEncodingTest`, `docs/QA.md` | ✅ |
 | 4 §2.1–2.2 (L1113–1194) | Authentication, ProviderManager, DaoAuthenticationProvider, UDS, PasswordEncoder | Đang chờ | `LoginFlowTest`, `CredentialsErasedTest` (+ D20 trong `docs/QA.md`) | ⬜ |
 | 4 §2.3 (L1196–1209) | `ThreadLocal`, `SecurityContextHolderFilter`, Explicit Save, dọn context | Đang chờ | `SecurityContextIsolationTest`, `ForgetfulLoginTest` | ⬜ |
 | 4 §2.3 (L1211–1213) | Tuần tự hoá phiên bằng Jackson 3 | Đang chờ | ST-1 `Jackson3SessionSerializationTest` (stretch) | ⬜ |

@@ -28,6 +28,8 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 | D18 | 2629–2638 | `oauth2Login` thiếu cấu hình client khiến app không khởi động | Khai báo dummy registration cho github; entry point 401 cho `/api/**` |
 | D19 | 2560–2566 vs 2624, 2693 | Chưa kích hoạt cơ chế gộp yếu tố MFA | Dùng `@EnableMultiFactorAuthentication` và yêu cầu cả `FACTOR_PASSWORD` + `FACTOR_OTT` cho endpoint nhạy cảm |
 | D20 | 1192 | Sơ đồ ghi sai `ProviderManager` gọi `SecurityContextHolder.setAuthentication` | Ghi nhận trong QA.md: Controller/Filter là nơi lưu SecurityContext |
+| D21 | 1043 | Bẫy 1 nêu thông báo lỗi `There is no PasswordEncoder mapped for the id "null"` | Spring Security 7.0.8 cập nhật thông báo lỗi chi tiết hơn: `"Given that there is no default password encoder configured, each password must have a password encoding prefix..."` |
+| D22 | B1, 909 | Sử dụng `tools.jackson.databind.ObjectMapper` thay vì `com.fasterxml.jackson.databind.ObjectMapper` trong Spring Boot 4 / Jackson 3 | Import và serialize JSON qua Jackson 3 APIs |
 
 ---
 
@@ -38,8 +40,8 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 | H1 | Bean `Customizer<HttpSecurity>` tự áp dụng cho mọi chain | **ĐÚNG** | `ModularCustomizerTest` chứng minh `securityHeadersCustomizer` áp dụng header `Content-Security-Policy` tự động qua `HttpSecurityConfiguration` |
 | H2 | Login tự viết không chống session fixation nếu không gọi strategy | Đang chờ | |
 | H3 | `XorCsrfTokenRequestAttributeHandler`: header mang token thô bị 403, token che thì được | Đang chờ | |
-| H4 | `BCryptPasswordEncoder` 7.x ném lỗi khi mật khẩu > 72 byte | Đang chờ | |
-| H5 | `DaoAuthenticationProvider` tự re-encode khi có `UserDetailsPasswordService` | Đang chờ | |
+| H4 | `BCryptPasswordEncoder` 7.x ném lỗi khi mật khẩu > 72 byte | **ĐÚNG** | `PasswordEncodingTest#bcrypt72` chứng minh `BCryptPasswordEncoder` ném `IllegalArgumentException: password cannot be more than 72 bytes` khi mật khẩu 73 ký tự thay vì âm thầm cắt ngắn |
+| H5 | `DaoAuthenticationProvider` tự re-encode khi có `UserDetailsPasswordService` | Đang chờ | Đã kiểm chứng mức PasswordEncoder trong `EncodingUpgradeTest`; tích hợp login hoàn thiện ở Phase 4 |
 | H6 | `JwtDecoder` mặc định từ chối `alg=none`, sai chữ ký, hết hạn | Đang chờ | |
 | H7 | `/oauth2/authorization/github` sinh `code_challenge` + `S256` PKCE | Đang chờ | |
 | H8 | Đăng nhập mật khẩu + OTT cùng phiên tích lũy đủ 2 yếu tố MFA | Đang chờ | |
