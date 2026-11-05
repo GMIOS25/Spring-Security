@@ -41,7 +41,7 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 | H2 | Login tự viết không chống session fixation nếu không gọi strategy | Đang chờ | |
 | H3 | `XorCsrfTokenRequestAttributeHandler`: header mang token thô bị 403, token che thì được | Đang chờ | |
 | H4 | `BCryptPasswordEncoder` 7.x ném lỗi khi mật khẩu > 72 byte | **ĐÚNG** | `PasswordEncodingTest#bcrypt72` chứng minh `BCryptPasswordEncoder` ném `IllegalArgumentException: password cannot be more than 72 bytes` khi mật khẩu 73 ký tự thay vì âm thầm cắt ngắn |
-| H5 | `DaoAuthenticationProvider` tự re-encode khi có `UserDetailsPasswordService` | Đang chờ | Đã kiểm chứng mức PasswordEncoder trong `EncodingUpgradeTest`; tích hợp login hoàn thiện ở Phase 4 |
+| H5 | `DaoAuthenticationProvider` tự re-encode khi có `UserDetailsPasswordService` | **ĐÚNG** | `EncodingUpgradeTest#daoAuthenticationProviderUpgradesEncodingOnSuccessfulLogin` chứng minh `DaoAuthenticationProvider` tự động băm lại và nâng cấp hash sang `{pbkdf2}` khi `default-id=pbkdf2` |
 | H6 | `JwtDecoder` mặc định từ chối `alg=none`, sai chữ ký, hết hạn | Đang chờ | |
 | H7 | `/oauth2/authorization/github` sinh `code_challenge` + `S256` PKCE | Đang chờ | |
 | H8 | Đăng nhập mật khẩu + OTT cùng phiên tích lũy đủ 2 yếu tố MFA | Đang chờ | |

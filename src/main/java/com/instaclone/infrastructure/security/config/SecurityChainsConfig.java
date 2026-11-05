@@ -59,6 +59,29 @@ public class SecurityChainsConfig {
         return registration;
     }
 
+    @Bean
+    public org.springframework.security.core.session.SessionRegistry sessionRegistry() {
+        return new org.springframework.security.core.session.SessionRegistryImpl();
+    }
+
+    @Bean
+    public org.springframework.security.web.session.HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new org.springframework.security.web.session.HttpSessionEventPublisher();
+    }
+
+    @Bean
+    public org.springframework.security.web.authentication.session.SessionAuthenticationStrategy sessionAuthenticationStrategy(
+            org.springframework.security.core.session.SessionRegistry reg) {
+        var concurrency = new org.springframework.security.web.authentication.session.ConcurrentSessionControlAuthenticationStrategy(reg);
+        concurrency.setMaximumSessions(2);
+        concurrency.setExceptionIfMaximumExceeded(false);
+        return new org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy(java.util.List.of(
+                concurrency,
+                new org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy(),
+                new org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy(reg)
+        ));
+    }
+
     private void applyCustomizers(HttpSecurity http) {
         if (customizers != null) {
             for (Customizer<HttpSecurity> c : customizers) {
@@ -113,10 +136,19 @@ public class SecurityChainsConfig {
 
     @Bean
     @Order(3)
-    public SecurityFilterChain webSessionFilterChain(HttpSecurity http, InstaRateLimitFilter rateLimitFilter) throws Exception {
+    public SecurityFilterChain webSessionFilterChain(
+            HttpSecurity http,
+            InstaRateLimitFilter rateLimitFilter,
+            org.springframework.security.core.session.SessionRegistry sessionRegistry) throws Exception {
         applyCustomizers(http);
         http.csrf(Customizer.withDefaults())
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            .sessionManagement(s -> s
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .sessionFixation(sf -> sf.changeSessionId())
+                .maximumSessions(2)
+                .maxSessionsPreventsLogin(false)
+                .sessionRegistry(sessionRegistry)
+            )
             .httpBasic(Customizer.withDefaults())
             .authorizeHttpRequests(a -> a
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()

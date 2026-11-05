@@ -22,11 +22,11 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 3 §3 (L870–1037) | Đăng ký + mã hoá một lần ở Service | `application.service.UserService`, `presentation.controller.AuthRegistrationController` | `RegisterApiTest` | ✅ |
 | 3 Bẫy 1, 2, 3 (L1043–1059) | Thiếu prefix; double encoding; cost quá cao | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | `MissingPrefixTest`, `DoubleEncodingTest`, `CostFactorBenchmarkTest` | ✅ |
 | 3 Q1, Q2 (L1065–1066) | Re-encode khi cập nhật hồ sơ; timing attack | `application.service.UserService` | `DoubleEncodingTest`, `docs/QA.md` | ✅ |
-| 4 §2.1–2.2 (L1113–1194) | Authentication, ProviderManager, DaoAuthenticationProvider, UDS, PasswordEncoder | Đang chờ | `LoginFlowTest`, `CredentialsErasedTest` (+ D20 trong `docs/QA.md`) | ⬜ |
-| 4 §2.3 (L1196–1209) | `ThreadLocal`, `SecurityContextHolderFilter`, Explicit Save, dọn context | Đang chờ | `SecurityContextIsolationTest`, `ForgetfulLoginTest` | ⬜ |
+| 4 §2.1–2.2 (L1113–1194) | Authentication, ProviderManager, DaoAuthenticationProvider, UDS, PasswordEncoder | `infrastructure.security.service.InstaCloneUserDetailsService`, `infrastructure.security.model.InstaCloneUserDetails`, `infrastructure.security.config.AuthenticationManagerConfig` | `LoginFlowTest`, `CredentialsErasedTest` (+ D20 trong `docs/QA.md`) | ✅ |
+| 4 §2.3 (L1196–1209) | `ThreadLocal`, `SecurityContextHolderFilter`, Explicit Save, dọn context | `presentation.controller.AuthenticationController` | `SecurityContextIsolationTest`, `ForgetfulLoginTest` | ✅ |
 | 4 §2.3 (L1211–1213) | Tuần tự hoá phiên bằng Jackson 3 | Đang chờ | ST-1 `Jackson3SessionSerializationTest` (stretch) | ⬜ |
-| 4 Bẫy 1, 2, 3 (L1477–1499) | Quên Explicit Save; Username Enumeration; mất context khi `@Async` | Đang chờ | `ForgetfulLoginTest`, `UsernameEnumerationTest`, `AsyncContextPropagationTest` | ⬜ |
-| 4 Q1, Q2 (L1505–1507) | UDS chỉ nhận username; credentials bị xoá | Đang chờ | `docs/QA.md`, `CredentialsErasedTest` | ⬜ |
+| 4 Bẫy 1, 2, 3 (L1477–1499) | Quên Explicit Save; Username Enumeration; mất context khi `@Async` | `presentation.controller.AuthenticationController`, `infrastructure.security.config.AsyncConfig`, `application.service.AsyncDemoService` | `ForgetfulLoginTest`, `UsernameEnumerationTest`, `AsyncContextPropagationTest` | ✅ |
+| 4 Q1, Q2 (L1505–1507) | UDS chỉ nhận username; credentials bị xoá | `infrastructure.security.service.InstaCloneUserDetailsService` | `docs/QA.md`, `CredentialsErasedTest` | ✅ |
 | 5 §2.1 (L1559–1613) | `AuthorizationManager` thay `AccessDecisionManager` | Đang chờ | `AuthorizationManagerClaimsTest` | ⬜ |
 | 5 §2.2 (L1615–1621) | `hasRole` (tự thêm `ROLE_`) vs `hasAuthority` | Đang chờ | `HasRoleVsHasAuthorityTest` | ⬜ |
 | 5 §2.3, §3 (L1623–1815) | Method security qua AOP; chống BOLA bằng `@PreAuthorize` | Đang chờ | `BolaDeleteTest`, `PostVisibilityTest`, `ResponseHasNoSensitiveDataTest` | ⬜ |
