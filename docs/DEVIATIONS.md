@@ -38,8 +38,8 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 | Giả thuyết | Mô tả | Trạng thái | Bằng chứng thực nghiệm |
 |---|---|---|---|
 | H1 | Bean `Customizer<HttpSecurity>` tự áp dụng cho mọi chain | **ĐÚNG** | `ModularCustomizerTest` chứng minh `securityHeadersCustomizer` áp dụng header `Content-Security-Policy` tự động qua `HttpSecurityConfiguration` |
-| H2 | Login tự viết không chống session fixation nếu không gọi strategy | Đang chờ | |
-| H3 | `XorCsrfTokenRequestAttributeHandler`: header mang token thô bị 403, token che thì được | Đang chờ | |
+| H2 | Login tự viết không chống session fixation nếu không gọi strategy | **ĐÚNG** | `SessionFixationTest` chứng minh việc gọi `sessionAuthenticationStrategy.onAuthentication(...)` kích hoạt `ChangeSessionIdAuthenticationStrategy` làm thay đổi ID phiên sau đăng nhập (S2 ≠ S1), và request mang cookie ID cũ S1 bị từ chối 401. |
+| H3 | `XorCsrfTokenRequestAttributeHandler`: header mang token thô bị 403, token che thì được | **ĐÚNG** | `CsrfProtectionTest` chứng minh token thô lấy từ cookie gửi trong header bị từ chối 403 (do handler không thể giải mã mask); trong khi token đã che lấy từ `/api/v1/csrf/token` trả về 201. Hai lần lấy token trong cùng phiên sinh ra 2 chuỗi khác nhau (chống BREACH) và đều hợp lệ. |
 | H4 | `BCryptPasswordEncoder` 7.x ném lỗi khi mật khẩu > 72 byte | **ĐÚNG** | `PasswordEncodingTest#bcrypt72` chứng minh `BCryptPasswordEncoder` ném `IllegalArgumentException: password cannot be more than 72 bytes` khi mật khẩu 73 ký tự thay vì âm thầm cắt ngắn |
 | H5 | `DaoAuthenticationProvider` tự re-encode khi có `UserDetailsPasswordService` | **ĐÚNG** | `EncodingUpgradeTest#daoAuthenticationProviderUpgradesEncodingOnSuccessfulLogin` chứng minh `DaoAuthenticationProvider` tự động băm lại và nâng cấp hash sang `{pbkdf2}` khi `default-id=pbkdf2` |
 | H6 | `JwtDecoder` mặc định từ chối `alg=none`, sai chữ ký, hết hạn | Đang chờ | |

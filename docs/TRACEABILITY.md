@@ -32,13 +32,13 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 5 §2.3, §3 (L1623–1815) | Method security qua AOP; chống BOLA bằng `@PreAuthorize` | `application.service.PostService`, `infrastructure.security.evaluator.PostSecurityEvaluator`, `presentation.controller.PostController` | `BolaDeleteTest`, `PostVisibilityTest`, `ResponseHasNoSensitiveDataTest` | ✅ |
 | 5 Bẫy 1, 2, 3 (L1823–1839) | Self-invocation; 403 vs 404; `@PostAuthorize` trên thao tác ghi | `antipattern.SelfInvocationDemo`, `antipattern.PostAuthorizeOnWriteDemo`, `application.service.PostService` | `SelfInvocationTest`, `PostVisibilityTest`, `PostAuthorizeOnWriteTest` | ✅ |
 | 5 Q1, Q2 (L1845–1847) | Phương thức private + AOP; chi phí SpEL | `docs/QA.md` | `docs/QA.md` | ✅ |
-| 6 §2.1 (L1898–1931) | Synchronizer Token; XOR masking chống BREACH | Đang chờ | `CsrfProtectionTest`, `CsrfAttackSimulationTest` | ⬜ |
-| 6 §2.2 (L1933–1939) | Session fixation; giới hạn phiên đồng thời | Đang chờ | `SessionFixationTest`, `ConcurrentSessionTest` | ⬜ |
-| 6 §2.3 (L1941–1947) | CORS, preflight, thứ tự `CorsFilter` | Đang chờ | `CorsPreflightTest` | ⬜ |
-| 6 §2.4 (L1949–1951) | `redirectToHttps` thay `requiresChannel` | Đang chờ | `HttpsRedirectTest` | ⬜ |
-| 6 §3.1 (L2013–2017) | Security headers | Đang chờ | `SecurityHeadersTest` | ⬜ |
-| 6 Bẫy 1, 2, 3 (L2084–2102) | Tắt CSRF bừa bãi; `*` + credentials; preflight bị 403 | Đang chờ | `ChainCsrfPolicyTest`, `CorsPreflightTest` | ⬜ |
-| 6 Q1, Q2 (L2108–2110) | CORS ≠ CSRF; JWT header vs JWT cookie | Đang chờ | `CsrfAttackSimulationTest`, `StatelessChainTest` + `docs/QA.md` | ⬜ |
+| 6 §2.1 (L1898–1931) | Synchronizer Token; XOR masking chống BREACH | `presentation.controller.CsrfController`, `infrastructure.security.config.SecurityChainsConfig` | `CsrfProtectionTest`, `CsrfAttackSimulationTest` | ✅ |
+| 6 §2.2 (L1933–1939) | Session fixation; giới hạn phiên đồng thời | `infrastructure.security.config.SecurityChainsConfig`, `presentation.controller.AuthenticationController`, `infrastructure.security.model.InstaCloneUserDetails` | `SessionFixationTest`, `ConcurrentSessionTest` | ✅ |
+| 6 §2.3 (L1941–1947) | CORS, preflight, thứ tự `CorsFilter` | `infrastructure.security.config.SecurityChainsConfig` | `CorsPreflightTest` | ✅ |
+| 6 §2.4 (L1949–1951) | `redirectToHttps` thay `requiresChannel` | `infrastructure.security.config.SecurityChainsConfig` | `HttpsRedirectTest` | ✅ |
+| 6 §3.1 (L2013–2017) | Security headers | `infrastructure.security.config.SecurityChainsConfig` | `SecurityHeadersTest` | ✅ |
+| 6 Bẫy 1, 2, 3 (L2084–2102) | Tắt CSRF bừa bãi; `*` + credentials; preflight bị 403 | `infrastructure.security.config.SecurityChainsConfig` | `ChainCsrfPolicyTest`, `CorsPreflightTest` | ✅ |
+| 6 Q1, Q2 (L2108–2110) | CORS ≠ CSRF; JWT header vs JWT cookie | `docs/QA.md` | `CsrfAttackSimulationTest`, `StatelessChainTest` + `docs/QA.md` | ✅ |
 | 7 §2.1 (L2152–2197) | Cấu trúc JWT, chữ ký bất đối xứng, payload không bí mật | Đang chờ | `JwtStructureTest`, `JwtVerificationTest`, `ResourceServerKeyTest` | ⬜ |
 | 7 §2.2 (L2199–2240) | `BearerTokenAuthenticationFilter`, `JwtDecoder`, `JwtAuthenticationConverter`, kiểm `typ` | Đang chờ | `JwtVerificationTest`, `ClaimMappingTest` | ⬜ |
 | 7 §2.3 (L2242–2252) | Access/Refresh token; thu hồi bằng blacklist `jti` + TTL | Đang chờ | `RefreshFlowTest`, `LogoutAllTest` | ⬜ |
