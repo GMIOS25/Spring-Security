@@ -154,7 +154,10 @@ public class SecurityChainsConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain statelessApiFilterChain(HttpSecurity http, InstaRateLimitFilter rateLimitFilter) throws Exception {
+    public SecurityFilterChain statelessApiFilterChain(
+            HttpSecurity http,
+            InstaRateLimitFilter rateLimitFilter,
+            org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
         applyCustomizers(http);
         http.securityMatcher(new OrRequestMatcher(bearerHeaderMatcher(), credentialIssuingEndpoints()))
             .csrf(c -> c.disable())
@@ -164,7 +167,7 @@ public class SecurityChainsConfig {
                 .requestMatchers("/api/v1/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
                 .anyRequest().authenticated()
             )
-            .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))
+            .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter)))
             .addFilterBefore(rateLimitFilter, BearerTokenAuthenticationFilter.class);
         return http.build();
     }

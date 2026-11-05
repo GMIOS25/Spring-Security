@@ -42,7 +42,7 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 | H3 | `XorCsrfTokenRequestAttributeHandler`: header mang token thô bị 403, token che thì được | **ĐÚNG** | `CsrfProtectionTest` chứng minh token thô lấy từ cookie gửi trong header bị từ chối 403 (do handler không thể giải mã mask); trong khi token đã che lấy từ `/api/v1/csrf/token` trả về 201. Hai lần lấy token trong cùng phiên sinh ra 2 chuỗi khác nhau (chống BREACH) và đều hợp lệ. |
 | H4 | `BCryptPasswordEncoder` 7.x ném lỗi khi mật khẩu > 72 byte | **ĐÚNG** | `PasswordEncodingTest#bcrypt72` chứng minh `BCryptPasswordEncoder` ném `IllegalArgumentException: password cannot be more than 72 bytes` khi mật khẩu 73 ký tự thay vì âm thầm cắt ngắn |
 | H5 | `DaoAuthenticationProvider` tự re-encode khi có `UserDetailsPasswordService` | **ĐÚNG** | `EncodingUpgradeTest#daoAuthenticationProviderUpgradesEncodingOnSuccessfulLogin` chứng minh `DaoAuthenticationProvider` tự động băm lại và nâng cấp hash sang `{pbkdf2}` khi `default-id=pbkdf2` |
-| H6 | `JwtDecoder` mặc định từ chối `alg=none`, sai chữ ký, hết hạn | Đang chờ | |
+| H6 | `JwtDecoder` mặc định từ chối `alg=none`, sai chữ ký, hết hạn | **ĐÚNG** | `JwtVerificationTest` chứng minh token bị sửa payload, token `alg=none`, token ký bằng RSA key khác, token hết hạn quá `clockSkew`, token sai issuer, và token có `typ` khác JWT đều bị từ chối 401 Unauthorized. |
 | H7 | `/oauth2/authorization/github` sinh `code_challenge` + `S256` PKCE | Đang chờ | |
 | H8 | Đăng nhập mật khẩu + OTT cùng phiên tích lũy đủ 2 yếu tố MFA | Đang chờ | |
 | H9 | Endpoint `/api/**` chưa xác thực trả 401 JSON thay vì 302 | **ĐÚNG** | `StatusSemanticsTest#unauthenticatedReturns401Not302` chứng minh ẩn danh `POST /api/v1/posts` trả 401 không chuyển hướng 302 |

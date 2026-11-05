@@ -26,6 +26,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -115,7 +116,18 @@ public class AuthenticationController {
             return ResponseEntity.ok(response);
         }
 
-        // Trường hợp khác (ví dụ: MockUser hoặc JWT Principal sau này)
+        if (authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
+            Object userId = jwt.getClaim("userId");
+            String username = jwt.getSubject();
+            List<String> roles = jwt.getClaimAsStringList("roles");
+            return ResponseEntity.ok(Map.of(
+                    "id", userId != null ? userId : 0,
+                    "username", username,
+                    "roles", roles != null ? roles : java.util.List.of()
+            ));
+        }
+
+        // Trường hợp khác (ví dụ: MockUser)
         Set<String> authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());

@@ -39,12 +39,12 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 6 §3.1 (L2013–2017) | Security headers | `infrastructure.security.config.SecurityChainsConfig` | `SecurityHeadersTest` | ✅ |
 | 6 Bẫy 1, 2, 3 (L2084–2102) | Tắt CSRF bừa bãi; `*` + credentials; preflight bị 403 | `infrastructure.security.config.SecurityChainsConfig` | `ChainCsrfPolicyTest`, `CorsPreflightTest` | ✅ |
 | 6 Q1, Q2 (L2108–2110) | CORS ≠ CSRF; JWT header vs JWT cookie | `docs/QA.md` | `CsrfAttackSimulationTest`, `StatelessChainTest` + `docs/QA.md` | ✅ |
-| 7 §2.1 (L2152–2197) | Cấu trúc JWT, chữ ký bất đối xứng, payload không bí mật | Đang chờ | `JwtStructureTest`, `JwtVerificationTest`, `ResourceServerKeyTest` | ⬜ |
-| 7 §2.2 (L2199–2240) | `BearerTokenAuthenticationFilter`, `JwtDecoder`, `JwtAuthenticationConverter`, kiểm `typ` | Đang chờ | `JwtVerificationTest`, `ClaimMappingTest` | ⬜ |
-| 7 §2.3 (L2242–2252) | Access/Refresh token; thu hồi bằng blacklist `jti` + TTL | Đang chờ | `RefreshFlowTest`, `LogoutAllTest` | ⬜ |
-| 7 Câu hỏi trọng tâm (L2146) | Xác thực stateless không cần DB | Đang chờ | `StatelessVerificationNoDbTest` | ⬜ |
-| 7 Bẫy 1, 2, 3 (L2456–2473) | Quên `STATELESS`; claim `roles` vs `scope`; lộ dữ liệu trong payload | Đang chờ | `StatelessChainTest`, `ClaimMappingTest`, `JwtStructureTest` | ⬜ |
-| 7 Q1, Q2 (L2479–2480) | Chỉ giữ public key; offline vs introspection/blacklist | Đang chờ | `ResourceServerKeyTest`, `LogoutAllTest` + `docs/QA.md` | ⬜ |
+| 7 §2.1 (L2152–2197) | Cấu trúc JWT, chữ ký bất đối xứng, payload không bí mật | `infrastructure.security.jwt.auth.JwtTokenService`, `infrastructure.security.jwt.auth.JwtAuthConfig`, `infrastructure.security.jwt.resource.JwtResourceConfig` | `JwtStructureTest`, `JwtVerificationTest`, `ResourceServerKeyTest` | ✅ |
+| 7 §2.2 (L2199–2240) | `BearerTokenAuthenticationFilter`, `JwtDecoder`, `JwtAuthenticationConverter`, kiểm `typ` | `infrastructure.security.config.SecurityChainsConfig` (Chain 2), `infrastructure.security.jwt.resource.JwtResourceConfig` | `JwtVerificationTest`, `ClaimMappingTest` | ✅ |
+| 7 §2.3 (L2242–2252) | Access/Refresh token; thu hồi bằng blacklist `jti` + TTL | `application.service.RefreshTokenService`, `infrastructure.security.jwt.resource.InMemoryJtiBlacklist`, `presentation.controller.AuthTokenController` | `RefreshFlowTest`, `LogoutAllTest` | ✅ |
+| 7 Câu hỏi trọng tâm (L2146) | Xác thực stateless không cần DB | `presentation.controller.AuthenticationController.getCurrentUser` | `StatelessVerificationNoDbTest` | ✅ |
+| 7 Bẫy 1, 2, 3 (L2456–2473) | Quên `STATELESS`; claim `roles` vs `scope`; lộ dữ liệu trong payload | `infrastructure.security.config.SecurityChainsConfig` (Chain 2), `JwtResourceConfig`, `JwtTokenService` | `StatelessChainTest`, `ClaimMappingTest`, `JwtStructureTest` | ✅ |
+| 7 Q1, Q2 (L2479–2480) | Chỉ giữ public key; offline vs introspection/blacklist | `infrastructure.security.jwt.resource` package, `InMemoryJtiBlacklist` | `ResourceServerKeyTest`, `LogoutAllTest` + `docs/QA.md` | ✅ |
 | 8 §2.1 (L2527–2555) | OAuth 2.1: PKCE bắt buộc, không Password Grant | Đang chờ | `OAuth2LoginPkceTest` | ⬜ |
 | 8 §2.2 (L2557–2566) | MFA: `FactorGrantedAuthority`, yêu cầu đủ yếu tố | Đang chờ | `MfaDeleteAccountTest` | ⬜ |
 | 8 §2.3 (L2568–2575) | One-Time Token, chống replay | Đang chờ | `OttLoginFlowTest` | ⬜ |

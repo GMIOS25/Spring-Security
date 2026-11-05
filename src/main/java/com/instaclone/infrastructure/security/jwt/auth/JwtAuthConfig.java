@@ -1,4 +1,4 @@
-package com.instaclone.infrastructure.security.config;
+package com.instaclone.infrastructure.security.jwt.auth;
 
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -8,23 +8,21 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.UUID;
 
 @Configuration
-public class JwtCryptographyConfig {
+public class JwtAuthConfig {
 
+    public static final String KEY_ID = "instaclone-key-1";
     private final KeyPair rsaKeyPair;
 
-    public JwtCryptographyConfig() {
+    public JwtAuthConfig() {
         this.rsaKeyPair = generateRsaKeyPair();
     }
 
@@ -49,15 +47,10 @@ public class JwtCryptographyConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder(RSAPublicKey rsaPublicKey) {
-        return NimbusJwtDecoder.withPublicKey(rsaPublicKey).build();
-    }
-
-    @Bean
     public JwtEncoder jwtEncoder(RSAPublicKey rsaPublicKey, RSAPrivateKey rsaPrivateKey) {
         JWK jwk = new RSAKey.Builder(rsaPublicKey)
                 .privateKey(rsaPrivateKey)
-                .keyID(UUID.randomUUID().toString())
+                .keyID(KEY_ID)
                 .build();
         JWKSource<SecurityContext> jwkSource = new ImmutableJWKSet<>(new JWKSet(jwk));
         return new NimbusJwtEncoder(jwkSource);
