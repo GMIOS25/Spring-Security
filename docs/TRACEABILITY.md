@@ -45,9 +45,9 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 7 Câu hỏi trọng tâm (L2146) | Xác thực stateless không cần DB | `presentation.controller.AuthenticationController.getCurrentUser` | `StatelessVerificationNoDbTest` | ✅ |
 | 7 Bẫy 1, 2, 3 (L2456–2473) | Quên `STATELESS`; claim `roles` vs `scope`; lộ dữ liệu trong payload | `infrastructure.security.config.SecurityChainsConfig` (Chain 2), `JwtResourceConfig`, `JwtTokenService` | `StatelessChainTest`, `ClaimMappingTest`, `JwtStructureTest` | ✅ |
 | 7 Q1, Q2 (L2479–2480) | Chỉ giữ public key; offline vs introspection/blacklist | `infrastructure.security.jwt.resource` package, `InMemoryJtiBlacklist` | `ResourceServerKeyTest`, `LogoutAllTest` + `docs/QA.md` | ✅ |
-| 8 §2.1 (L2527–2555) | OAuth 2.1: PKCE bắt buộc, không Password Grant | Đang chờ | `OAuth2LoginPkceTest` | ⬜ |
-| 8 §2.2 (L2557–2566) | MFA: `FactorGrantedAuthority`, yêu cầu đủ yếu tố | Đang chờ | `MfaDeleteAccountTest` | ⬜ |
-| 8 §2.3 (L2568–2575) | One-Time Token, chống replay | Đang chờ | `OttLoginFlowTest` | ⬜ |
-| 8 §2.4, §3.3 (L2577–2790) | `@WithMockUser`, `@WithUserDetails`, `jwt()`, MockMvc | Đang chờ | `PostControllerSecurityTest`, `TestPrincipalTypesTest` | ⬜ |
-| 8 Bẫy 1, 2, 3 (L2798–2824) | Thiếu CSRF trong test; sai kiểu principal; redirect URI lỏng | Đang chờ | `CsrfInTestsTest`, `TestPrincipalTypesTest`, `OAuth2LoginPkceTest` | ⬜ |
-| 8 Q1, Q2 (L2830–2831) | `@WebMvcTest` vs `@SpringBootTest`; Magic Link GET vs POST | Đang chờ | `WebMvcSliceVsFullStackTest`, `OttLoginFlowTest` + `docs/QA.md` | ⬜ |
+| 8 §2.1 (L2527–2555) | OAuth 2.1: PKCE bắt buộc, không Password Grant | `infrastructure.security.config.SecurityChainsConfig` (Chain 3 `oauth2Login`) | `OAuth2LoginPkceTest` | ✅ |
+| 8 §2.2 (L2557–2566) | MFA: `FactorGrantedAuthority`, yêu cầu đủ yếu tố | `presentation.controller.UserManagementController`, `infrastructure.security.config.SecurityChainsConfig` | `MfaDeleteAccountTest` | ✅ |
+| 8 §2.3 (L2568–2575) | One-Time Token, chống replay | `infrastructure.security.ott.MagicLinkMailer`, `infrastructure.security.config.SecurityChainsConfig` | `OttLoginFlowTest` | ✅ |
+| 8 §2.4, §3.3 (L2577–2790) | `@WithMockUser`, `@WithUserDetails`, `jwt()`, MockMvc | `presentation.controller.PostController`, `infrastructure.security.model.InstaCloneUserDetails` | `PostControllerSecurityTest`, `TestPrincipalTypesTest` | ✅ |
+| 8 Bẫy 1, 2, 3 (L2798–2824) | Thiếu CSRF trong test; sai kiểu principal; redirect URI lỏng | `infrastructure.security.config.SecurityChainsConfig` | `CsrfInTestsTest`, `TestPrincipalTypesTest`, `OAuth2LoginPkceTest` | ✅ |
+| 8 Q1, Q2 (L2830–2831) | `@WebMvcTest` vs `@SpringBootTest`; Magic Link GET vs POST | `WebMvcSliceVsFullStackTest`, `WebMvcSliceMockBypassesAopTest` | `WebMvcSliceVsFullStackTest`, `OttLoginFlowTest` + `docs/QA.md` | ✅ |

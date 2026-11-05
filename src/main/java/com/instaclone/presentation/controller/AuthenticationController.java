@@ -64,6 +64,14 @@ public class AuthenticationController {
             // 2. Kích hoạt AuthenticationManager (ProviderManager -> DaoAuthenticationProvider)
             Authentication authentication = authenticationManager.authenticate(unauthenticatedToken);
 
+            // MFA: If user was already authenticated in this session (e.g., via OTT), merge authorities
+            Authentication existingAuth = SecurityContextHolder.getContext().getAuthentication();
+            if (existingAuth != null && existingAuth.isAuthenticated() && existingAuth.getName().equals(authentication.getName())) {
+                authentication = authentication.toBuilder()
+                        .authorities(auths -> auths.addAll(existingAuth.getAuthorities()))
+                        .build();
+            }
+
             // 3. Khởi tạo SecurityContext mới và thiết lập Authentication thành công
             SecurityContext context = securityContextHolderStrategy.createEmptyContext();
             context.setAuthentication(authentication);

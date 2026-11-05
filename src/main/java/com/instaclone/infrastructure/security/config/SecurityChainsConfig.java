@@ -41,9 +41,18 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.time.Clock;
 import java.util.List;
 
+import com.instaclone.infrastructure.security.ott.MagicLinkMailer;
+import org.springframework.security.authentication.ott.InMemoryOneTimeTokenService;
+import org.springframework.security.authentication.ott.OneTimeTokenService;
+import org.springframework.security.authorization.AllRequiredFactorsAuthorizationManager;
+import org.springframework.security.config.annotation.authorization.EnableMultiFactorAuthentication;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.web.authentication.ott.OneTimeTokenGenerationSuccessHandler;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableMultiFactorAuthentication(authorities = {})
 public class SecurityChainsConfig {
 
     private final Clock clock;
@@ -173,12 +182,30 @@ public class SecurityChainsConfig {
     }
 
     @Bean
+    public OneTimeTokenService oneTimeTokenService(Clock clock) {
+        InMemoryOneTimeTokenService service = new InMemoryOneTimeTokenService();
+        service.setClock(clock);
+        return service;
+    }
+
+    @Bean
+    public OneTimeTokenGenerationSuccessHandler oneTimeTokenGenerationSuccessHandler(MagicLinkMailer mailer) {
+        return (request, response, oneTimeToken) -> {
+            mailer.sendMagicLink(oneTimeToken.getUsername(), oneTimeToken.getTokenValue());
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"message\":\"One-time login token has been dispatched to your email.\"}");
+        };
+    }
+
+    @Bean
     @Order(3)
     public SecurityFilterChain webSessionFilterChain(
             HttpSecurity http,
             InstaRateLimitFilter rateLimitFilter,
             SessionRegistry sessionRegistry,
-            CorsConfigurationSource corsConfigurationSource) throws Exception {
+            CorsConfigurationSource corsConfigurationSource,
+            OneTimeTokenGenerationSuccessHandler oneTimeTokenGenerationSuccessHandler) throws Exception {
         applyCustomizers(http);
         if (requireHttps) {
             http.redirectToHttps(Customizer.withDefaults());
@@ -211,15 +238,33 @@ public class SecurityChainsConfig {
                 .contentTypeOptions(Customizer.withDefaults())
             )
             .httpBasic(Customizer.withDefaults())
+            .oauth2Login(oauth2 -> oauth2
+                .defaultSuccessUrl("/api/v1/users/me", true)
+            )
+            .oneTimeTokenLogin(ott -> ott
+                .tokenGeneratingUrl("/ott/generate")
+                .tokenGenerationSuccessHandler(oneTimeTokenGenerationSuccessHandler)
+            )
             .authorizeHttpRequests(a -> a
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/csrf/token").permitAll()
+                .requestMatchers("/ott/generate", "/login/ott/**", "/oauth2/**").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me").access(
+                    AllRequiredFactorsAuthorizationManager.<RequestAuthorizationContext>builder()
+                        .requireFactor(f -> f.passwordAuthority())
+                        .requireFactor(f -> f.ottAuthority())
+                        .build()
+                )
                 .requestMatchers("/api/v1/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
                 .requestMatchers("/api/v1/posts/**").authenticated()
                 .requestMatchers("/uploads/**").authenticated()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
+                .defaultAuthenticationEntryPointFor(
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                    PathPatternRequestMatcher.withDefaults().matcher("/api/**")
+                )
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
                     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
