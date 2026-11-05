@@ -10,12 +10,12 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 1 Bẫy 1 (L371) | 401 Unauthorized ≠ 403 Forbidden | `infrastructure.security.config.SecurityConfig`, `presentation.controller.ModerationController` | `StatusSemanticsTest` | ✅ |
 | 1 Bẫy 2 (L376) | Không tin Frontend → BOLA / IDOR | `application.service.PostService` (Phase 5) | `BolaDeleteTest` | ⬜ |
 | 1 Q1, Q2 (L385–386) | 401 vs 403; filter đặt sau DispatcherServlet | `infrastructure.security.config.SecurityConfig` | `StatusSemanticsTest`, `FilterChainIntrospectionTest` + `docs/QA.md` | ✅ |
-| 2 §2.1 (L434–493) | DelegatingFilterProxy → FilterChainProxy → SecurityFilterChain, khớp chain đầu tiên | Đang chờ | `FilterChainIntrospectionTest` | ⬜ |
-| 2 §2.2 (L497–509) | PathPatternRequestMatcher; Lambda DSL, không `.and()`; `Customizer<HttpSecurity>` | Đang chờ | `RemovedApisClaimsTest`, `ModularCustomizerTest` | ⬜ |
-| 2 §3.3 (L612–686) | Custom Filter kế thừa `OncePerRequestFilter` (rate limit) | Đang chờ | `RateLimitFilterTest` | ⬜ |
-| 2 Bẫy 1 (L694) | Filter chạy đúp khi đăng ký thành Bean | Đang chờ | `FilterRunsOnceTest` | ⬜ |
-| 2 Bẫy 2 (L714) | Thứ tự rule: cụ thể trước, tổng quát sau | Đang chờ | `AuthorizationRuleOrderTest` | ⬜ |
-| 2 Q1, Q2 (L724–725) | `permitAll` vẫn đi qua filter; nhiều chain + `@Order` | Đang chờ | `PermitAllStillTraversesFilterChainTest`, `FilterChainIntrospectionTest` | ⬜ |
+| 2 §2.1 (L434–493) | DelegatingFilterProxy → FilterChainProxy → SecurityFilterChain, khớp chain đầu tiên | `infrastructure.security.config.SecurityChainsConfig` | `FilterChainIntrospectionTest` | ✅ |
+| 2 §2.2 (L497–509) | PathPatternRequestMatcher; Lambda DSL, không `.and()`; `Customizer<HttpSecurity>` | `infrastructure.security.config.SecurityChainsConfig`, `ModularSecurityConfig` | `RemovedApisClaimsTest`, `ModularCustomizerTest` | ✅ |
+| 2 §3.3 (L612–686) | Custom Filter kế thừa `OncePerRequestFilter` (rate limit) | `infrastructure.security.filter.InstaRateLimitFilter` | `RateLimitFilterTest` | ✅ |
+| 2 Bẫy 1 (L694) | Filter chạy đúp khi đăng ký thành Bean | `infrastructure.security.config.SecurityChainsConfig` | `FilterRunsOnceTest` | ✅ |
+| 2 Bẫy 2 (L714) | Thứ tự rule: cụ thể trước, tổng quát sau | `infrastructure.security.config.SecurityChainsConfig` | `AuthorizationRuleOrderTest` | ✅ |
+| 2 Q1, Q2 (L724–725) | `permitAll` vẫn đi qua filter; nhiều chain + `@Order` | `infrastructure.security.config.SecurityChainsConfig` | `PermitAllStillTraversesFilterChainTest`, `FilterChainIntrospectionTest` | ✅ |
 | 3 §2.1 (L767–776) | Salt ngẫu nhiên, slow hashing, work factor | Đang chờ | `PasswordEncodingTest`, `CostFactorBenchmarkTest` | ⬜ |
 | 3 §2.2 (L778–826) | `DelegatingPasswordEncoder`, tiền tố `{id}`, `upgradeEncoding` | Đang chờ | `EncodingUpgradeTest` | ⬜ |
 | 3 §2.3 (L828–866) | Cấu trúc 60 ký tự của BCrypt | Đang chờ | `PasswordEncodingTest` | ⬜ |

@@ -35,7 +35,7 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 
 | Giả thuyết | Mô tả | Trạng thái | Bằng chứng thực nghiệm |
 |---|---|---|---|
-| H1 | Bean `Customizer<HttpSecurity>` tự áp dụng cho mọi chain | Đang chờ | |
+| H1 | Bean `Customizer<HttpSecurity>` tự áp dụng cho mọi chain | **ĐÚNG** | `ModularCustomizerTest` chứng minh `securityHeadersCustomizer` áp dụng header `Content-Security-Policy` tự động qua `HttpSecurityConfiguration` |
 | H2 | Login tự viết không chống session fixation nếu không gọi strategy | Đang chờ | |
 | H3 | `XorCsrfTokenRequestAttributeHandler`: header mang token thô bị 403, token che thì được | Đang chờ | |
 | H4 | `BCryptPasswordEncoder` 7.x ném lỗi khi mật khẩu > 72 byte | Đang chờ | |

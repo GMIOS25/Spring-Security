@@ -14,4 +14,9 @@ public class PostController {
     public ResponseEntity<Map<String, Object>> createPost(@RequestBody(required = false) Map<String, Object> body) {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "created"));
     }
+
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<Map<String, Object>> addComment(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "comment created", "postId", id));
+    }
 }
