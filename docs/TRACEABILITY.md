@@ -4,12 +4,12 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 
 | Chương / mục | Khái niệm trong LT.md | Hiện thực (src/main) | Test chứng minh (src/test) | Trạng thái |
 | --- | --- | --- | --- | --- |
-| 1 §2.1 (L150–163) | Identification, Credentials, Authentication, Principal, Authority, Trust Boundary | Đang chờ | `LoginFlowTest` + `docs/QA.md` | ⬜ |
-| 1 §2.2 (L165–206) | Servlet Filter đứng trước DispatcherServlet; Interceptor không bảo vệ tài nguyên ngoài MVC | Đang chờ | `AntiPatternInterceptorTest`, `StaticResourceProtectedTest`, `FirewallVsInterceptorTest` | ⬜ |
-| 1 §2.3 (L208–214) | Least privilege, deny-by-default, `POST_DELETE_ANY` | Đang chờ | `DenyByDefaultTest`, `BolaDeleteTest` | ⬜ |
-| 1 Bẫy 1 (L371) | 401 Unauthorized ≠ 403 Forbidden | Đang chờ | `StatusSemanticsTest` | ⬜ |
-| 1 Bẫy 2 (L376) | Không tin Frontend → BOLA / IDOR | Đang chờ | `BolaDeleteTest` | ⬜ |
-| 1 Q1, Q2 (L385–386) | 401 vs 403; filter đặt sau DispatcherServlet | Đang chờ | `StatusSemanticsTest`, `FilterChainIntrospectionTest` + `docs/QA.md` | ⬜ |
+| 1 §2.1 (L150–163) | Identification, Credentials, Authentication, Principal, Authority, Trust Boundary | `domain.entity.User` | `LoginFlowTest` + `docs/QA.md` | ⬜ |
+| 1 §2.2 (L165–206) | Servlet Filter đứng trước DispatcherServlet; Interceptor không bảo vệ tài nguyên ngoài MVC | `infrastructure.security.antipattern.FragileSecurityInterceptor`, `infrastructure.security.config.SecurityConfig` | `AntiPatternInterceptorTest`, `StaticResourceProtectedTest`, `FirewallVsInterceptorTest` | ✅ |
+| 1 §2.3 (L208–214) | Least privilege, deny-by-default, `POST_DELETE_ANY` | `infrastructure.security.config.SecurityConfig` | `DenyByDefaultTest`, `BolaDeleteTest` | ✅ |
+| 1 Bẫy 1 (L371) | 401 Unauthorized ≠ 403 Forbidden | `infrastructure.security.config.SecurityConfig`, `presentation.controller.ModerationController` | `StatusSemanticsTest` | ✅ |
+| 1 Bẫy 2 (L376) | Không tin Frontend → BOLA / IDOR | `application.service.PostService` (Phase 5) | `BolaDeleteTest` | ⬜ |
+| 1 Q1, Q2 (L385–386) | 401 vs 403; filter đặt sau DispatcherServlet | `infrastructure.security.config.SecurityConfig` | `StatusSemanticsTest`, `FilterChainIntrospectionTest` + `docs/QA.md` | ✅ |
 | 2 §2.1 (L434–493) | DelegatingFilterProxy → FilterChainProxy → SecurityFilterChain, khớp chain đầu tiên | Đang chờ | `FilterChainIntrospectionTest` | ⬜ |
 | 2 §2.2 (L497–509) | PathPatternRequestMatcher; Lambda DSL, không `.and()`; `Customizer<HttpSecurity>` | Đang chờ | `RemovedApisClaimsTest`, `ModularCustomizerTest` | ⬜ |
 | 2 §3.3 (L612–686) | Custom Filter kế thừa `OncePerRequestFilter` (rate limit) | Đang chờ | `RateLimitFilterTest` | ⬜ |

@@ -43,7 +43,7 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 | H6 | `JwtDecoder` mặc định từ chối `alg=none`, sai chữ ký, hết hạn | Đang chờ | |
 | H7 | `/oauth2/authorization/github` sinh `code_challenge` + `S256` PKCE | Đang chờ | |
 | H8 | Đăng nhập mật khẩu + OTT cùng phiên tích lũy đủ 2 yếu tố MFA | Đang chờ | |
-| H9 | Endpoint `/api/**` chưa xác thực trả 401 JSON thay vì 302 | Đang chờ | |
+| H9 | Endpoint `/api/**` chưa xác thực trả 401 JSON thay vì 302 | **ĐÚNG** | `StatusSemanticsTest#unauthenticatedReturns401Not302` chứng minh ẩn danh `POST /api/v1/posts` trả 401 không chuyển hướng 302 |
 | H10 | `@PreAuthorize` có hiệu lực với starter security + webmvc | Đang chờ | |
 | H11 | Slice `@WebMvcTest` cần import cấu hình khi có nhiều chain | Đang chờ | |
 | H12 | MockMvc `jwt()` không tự thêm header `Authorization` vào chain matcher | Đang chờ | |
