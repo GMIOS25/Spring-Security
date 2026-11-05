@@ -1,3 +1,8 @@
+target/
+.idea/
+*.iml
+.vscode/
+~$*
 .codex-work
 .agents
 .claude

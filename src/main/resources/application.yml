@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: instaclone
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  datasource:
+    url: jdbc:h2:mem:instaclone;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:dummy-github-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:dummy-github-client-secret}
+            scope: read:user,user:email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+instaclone:
+  security:
+    require-https: false
+    cors:
+      allowed-origins:
+        - http://localhost:3000
+    password:
+      default-id: bcrypt
+      bcrypt-strength: 10
+  ratelimit:
+    max-per-minute: 60
+  jwt:
+    issuer: https://api.instaclone.com
+    access-ttl: PT15M
+    refresh-ttl: P7D
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+instaclone:
+  ratelimit:
+    max-per-minute: 3
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+instaclone:
+  security:
+    require-https: true
