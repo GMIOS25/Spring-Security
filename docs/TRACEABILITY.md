@@ -4,7 +4,7 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 
 | Chương / mục | Khái niệm trong LT.md | Hiện thực (src/main) | Test chứng minh (src/test) | Trạng thái |
 | --- | --- | --- | --- | --- |
-| 1 §2.1 (L150–163) | Identification, Credentials, Authentication, Principal, Authority, Trust Boundary | `domain.entity.User` | `LoginFlowTest` + `docs/QA.md` | ⬜ |
+| 1 §2.1 (L150–163) | Identification, Credentials, Authentication, Principal, Authority, Trust Boundary | `domain.entity.User` | `LoginFlowTest` + `docs/QA.md` | ✅ |
 | 1 §2.2 (L165–206) | Servlet Filter đứng trước DispatcherServlet; Interceptor không bảo vệ tài nguyên ngoài MVC | `infrastructure.security.antipattern.FragileSecurityInterceptor`, `infrastructure.security.config.SecurityConfig` | `AntiPatternInterceptorTest`, `StaticResourceProtectedTest`, `FirewallVsInterceptorTest` | ✅ |
 | 1 §2.3 (L208–214) | Least privilege, deny-by-default, `POST_DELETE_ANY` | `infrastructure.security.config.SecurityConfig` | `DenyByDefaultTest`, `BolaDeleteTest` | ✅ |
 | 1 Bẫy 1 (L371) | 401 Unauthorized ≠ 403 Forbidden | `infrastructure.security.config.SecurityConfig`, `presentation.controller.ModerationController` | `StatusSemanticsTest` | ✅ |
@@ -24,7 +24,7 @@ Ma trận này ánh xạ các khái niệm, bẫy bảo mật và câu hỏi tro
 | 3 Q1, Q2 (L1065–1066) | Re-encode khi cập nhật hồ sơ; timing attack | `application.service.UserService` | `DoubleEncodingTest`, `docs/QA.md` | ✅ |
 | 4 §2.1–2.2 (L1113–1194) | Authentication, ProviderManager, DaoAuthenticationProvider, UDS, PasswordEncoder | `infrastructure.security.service.InstaCloneUserDetailsService`, `infrastructure.security.model.InstaCloneUserDetails`, `infrastructure.security.config.AuthenticationManagerConfig` | `LoginFlowTest`, `CredentialsErasedTest` (+ D20 trong `docs/QA.md`) | ✅ |
 | 4 §2.3 (L1196–1209) | `ThreadLocal`, `SecurityContextHolderFilter`, Explicit Save, dọn context | `presentation.controller.AuthenticationController` | `SecurityContextIsolationTest`, `ForgetfulLoginTest` | ✅ |
-| 4 §2.3 (L1211–1213) | Tuần tự hoá phiên bằng Jackson 3 | Đang chờ | ST-1 `Jackson3SessionSerializationTest` (stretch) | ⬜ |
+| 4 §2.3 (L1211–1213) | Tuần tự hoá phiên bằng Jackson 3 | Không bắt buộc | ST-1 `Jackson3SessionSerializationTest` (stretch — xem DEVIATIONS.md) | ⬜ (Stretch) |
 | 4 Bẫy 1, 2, 3 (L1477–1499) | Quên Explicit Save; Username Enumeration; mất context khi `@Async` | `presentation.controller.AuthenticationController`, `infrastructure.security.config.AsyncConfig`, `application.service.AsyncDemoService` | `ForgetfulLoginTest`, `UsernameEnumerationTest`, `AsyncContextPropagationTest` | ✅ |
 | 4 Q1, Q2 (L1505–1507) | UDS chỉ nhận username; credentials bị xoá | `infrastructure.security.service.InstaCloneUserDetailsService` | `docs/QA.md`, `CredentialsErasedTest` | ✅ |
 | 5 §2.1 (L1559–1613) | `AuthorizationManager` thay `AccessDecisionManager` | `infrastructure.security.config.SecurityChainsConfig` | `AuthorizationManagerClaimsTest` | ✅ |

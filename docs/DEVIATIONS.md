@@ -30,6 +30,7 @@ Tài liệu này ghi lại các sai lệch có chủ đích so với `docs/LT.md
 | D20 | 1192 | Sơ đồ ghi sai `ProviderManager` gọi `SecurityContextHolder.setAuthentication` | Ghi nhận trong QA.md: Controller/Filter là nơi lưu SecurityContext |
 | D21 | 1043 | Bẫy 1 nêu thông báo lỗi `There is no PasswordEncoder mapped for the id "null"` | Spring Security 7.0.8 cập nhật thông báo lỗi chi tiết hơn: `"Given that there is no default password encoder configured, each password must have a password encoding prefix..."` |
 | D22 | B1, 909 | Sử dụng `tools.jackson.databind.ObjectMapper` thay vì `com.fasterxml.jackson.databind.ObjectMapper` trong Spring Boot 4 / Jackson 3 | Import và serialize JSON qua Jackson 3 APIs |
+| ST-1 | 1211–1213 | Tuần tự hóa phiên bằng Jackson 3 (ST-1) | Mục tiêu mở rộng (Stretch goal) hoãn lại; app sử dụng cơ chế session in-memory chuẩn của Tomcat/Spring Security SessionRegistry |
 
 ---
 
