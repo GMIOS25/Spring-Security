@@ -3,11 +3,13 @@ package com.instaclone.presentation.controller;
 import com.instaclone.application.dto.request.LoginRequest;
 import com.instaclone.application.dto.response.UserProfileResponse;
 import com.instaclone.infrastructure.security.model.InstaCloneUserDetails;
+import com.instaclone.infrastructure.security.ott.MagicLinkMailer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -39,16 +41,32 @@ public class AuthenticationController {
 
     private final AuthenticationManager authenticationManager;
     private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
+    private final MagicLinkMailer magicLinkMailer;
     private final SecurityContextHolderStrategy securityContextHolderStrategy =
             SecurityContextHolder.getContextHolderStrategy();
     private final SecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
 
+    @Autowired
+    public AuthenticationController(
+            AuthenticationManager authenticationManager,
+            SessionAuthenticationStrategy sessionAuthenticationStrategy,
+            @Autowired(required = false) MagicLinkMailer magicLinkMailer) {
+        this.authenticationManager = authenticationManager;
+        this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
+        this.magicLinkMailer = magicLinkMailer;
+    }
+
     public AuthenticationController(
             AuthenticationManager authenticationManager,
             SessionAuthenticationStrategy sessionAuthenticationStrategy) {
-        this.authenticationManager = authenticationManager;
-        this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
+        this(authenticationManager, sessionAuthenticationStrategy, null);
+    }
+
+    @GetMapping("/ott/latest")
+    public ResponseEntity<Map<String, String>> getLatestOttToken() {
+        String token = (magicLinkMailer != null) ? magicLinkMailer.getLastToken() : null;
+        return ResponseEntity.ok(Map.of("token", token != null ? token : ""));
     }
 
     @PostMapping("/api/v1/auth/login")
@@ -112,7 +130,7 @@ public class AuthenticationController {
         }
 
         if (authentication.getPrincipal() instanceof InstaCloneUserDetails userDetails) {
-            Set<String> roles = userDetails.getAuthorities().stream()
+            Set<String> roles = authentication.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toSet());
             UserProfileResponse response = new UserProfileResponse(

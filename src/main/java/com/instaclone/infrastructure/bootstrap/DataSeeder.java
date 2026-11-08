@@ -46,11 +46,11 @@ public class DataSeeder implements CommandLineRunner {
         User cuongAdmin = userRepository.save(new User("cuong_admin", encodedPassword, "cuong_admin@instaclone.com", Set.of("ROLE_USER", "ROLE_ADMIN")));
 
         // Seed posts: alice has 1 PUBLIC + 1 PRIVATE + 1 FOLLOWERS_ONLY; bob has 1 PUBLIC
-        postRepository.save(new Post("Alice public post", "https://images.instaclone.local/p1.jpg", alice, Post.PostVisibility.PUBLIC));
-        postRepository.save(new Post("Alice private post", "https://images.instaclone.local/p2.jpg", alice, Post.PostVisibility.PRIVATE));
-        postRepository.save(new Post("Alice followers only post", "https://images.instaclone.local/p3.jpg", alice, Post.PostVisibility.FOLLOWERS_ONLY));
+        postRepository.save(new Post("Golden hour over the city skyline ✨ 🌆 #cityscape #goldenhour #sunset", "/images/posts/p1.svg", alice, Post.PostVisibility.PUBLIC));
+        postRepository.save(new Post("Night coding session with Spring Boot 4.0 & Java 21 ☕ 💻 #devlife #setup #spring", "/images/posts/p2.svg", alice, Post.PostVisibility.PRIVATE));
+        postRepository.save(new Post("Weekend hike into the misty pine mountains 🌲 ⛰️ #nature #outdoors #wanderlust", "/images/posts/p3.svg", alice, Post.PostVisibility.FOLLOWERS_ONLY));
 
-        postRepository.save(new Post("Bob public post", "https://images.instaclone.local/p4.jpg", bob, Post.PostVisibility.PUBLIC));
+        postRepository.save(new Post("Neon lights and midnight vibes in Neo-Shinjuku 🚀 🌃 #cyberpunk #neon #night", "/images/posts/p4.svg", bob, Post.PostVisibility.PUBLIC));
 
         log.info("DataSeeder: Successfully seeded 5 users and 4 posts.");
     }

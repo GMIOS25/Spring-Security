@@ -19,6 +19,18 @@ Dự án mẫu minh họa toàn diện các nguyên lý, cơ chế kiến trúc 
 ./mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 Ứng dụng sẽ khởi động tại cổng mặc định `http://localhost:8080`.
+Giao diện người dùng Web Frontend (InstaClone UI) được phục vụ trực tiếp tại root URL:
+👉 **`http://localhost:8080/`**
+
+### Giao diện InstaClone Frontend (UI/UX Design)
+- **Design System & Aesthetics**: Phong cách Instagram hiện đại, tối ưu độ tương phản (WCAG AA/AAA), hỗ trợ đầy đủ Dark Mode & Light Mode, typography Inter + JetBrains Mono, hiệu ứng Like tim bay (double-tap burst), story highlights bar có thanh tiến trình tự động.
+- **Fast 1-Click Role Switcher**: Cho phép chuyển đổi tức thì giữa 5 tài khoản mẫu (`alice`, `bob`, `charlie`, `mod_alice`, `cuong_admin`) với mật khẩu tự động điền sẵn để kiểm thử quyền hạn.
+- **Live Spring Security 7.x Telemetry HUD**: Ngăn kéo giám sát kiến trúc bảo mật thời gian thực:
+  - Hiển thị trực quan 3 Filter Chains và đánh dấu Chain xử lý request vừa gửi.
+  - Phân tích mã CSRF Token được che giấu (XOR masked) chống tấn công BREACH.
+  - Bộ công cụ kiểm thử BOLA / IDOR thực nghiệm (minh họa cơ chế trả 404 thay vì 403 để giấu sự tồn tại của bài viết riêng tư).
+  - Trạng thái xác thực đa yếu tố MFA (`FACTOR_PASSWORD` + `FACTOR_OTT`).
+- **Interactive Features**: Đăng bài mới (chọn ảnh preset/URL, gắn hashtag, chọn visibility PUBLIC / PRIVATE / FOLLOWERS), xóa bài viết (kiểm tra phân quyền BOLA / POST_DELETE_ANY), bình luận trực tiếp, bookmark, và explore theo chủ đề.
 
 ### Chạy kiểm thử tự động
 ```bash

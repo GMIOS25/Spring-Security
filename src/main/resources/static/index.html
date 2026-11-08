@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="InstaClone — Modern Instagram Web Client powered by Spring Security 7.x, Spring Boot 4.0.x and Java 21." />
+  <meta name="theme-color" content="#09090b" />
+  <title>InstaClone — Spring Security 7.x Interactive Demo</title>
+
+  <!-- Core Design System & Stylesheet -->
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+
+  <!-- App Shell Layout -->
+  <div class="app-container">
+    
+    <!-- Navigation Mount (Desktop Sidebar & Mobile Header/Nav) -->
+    <div id="navbarMount"></div>
+
+    <!-- Main Content Wrapper -->
+    <main class="main-wrapper" id="mainContent" role="main">
+      
+      <!-- Home Feed Section -->
+      <section id="feedSection" class="feed-layout-container" aria-label="Home Feed Stream">
+        <div class="feed-main-col">
+          <!-- Stories Highlights Reel -->
+          <div id="storiesMount"></div>
+          <!-- Posts Feed Stream -->
+          <div id="feedMount"></div>
+        </div>
+
+        <!-- Desktop Suggestions & Status Sidebar -->
+        <aside class="feed-sidebar-col" id="feedSidebarMount" aria-label="Feed Suggestions"></aside>
+      </section>
+
+      <!-- Explore Grid Section -->
+      <section id="exploreSection" class="app-section hidden" aria-label="Explore Discover Grid">
+        <div id="exploreMount"></div>
+      </section>
+
+      <!-- User Profile Section -->
+      <section id="profileSection" class="app-section hidden" aria-label="User Profile and MFA Settings">
+        <div id="profileMount"></div>
+      </section>
+
+      <!-- Moderation Command Center Section -->
+      <section id="moderationSection" class="app-section hidden" aria-label="Staff Moderation Command Center">
+        <div id="moderationMount"></div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Dialog Mounts -->
+  <div id="createModalMount"></div>
+  <div id="authModalMount"></div>
+  <div id="securityHudMount"></div>
+
+  <!-- Main ES Module Script -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

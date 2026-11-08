@@ -14,6 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class PostService {
 
@@ -50,6 +52,18 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found: " + postId));
         postRepository.delete(post);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PostResponse> getVisiblePosts(String currentUsername, boolean isStaff) {
+        List<Post> posts = postRepository.findAll();
+        return posts.stream()
+                .filter(post -> post.getVisibility() == Post.PostVisibility.PUBLIC
+                        || (currentUsername != null && post.getAuthor().getUsername().equals(currentUsername))
+                        || isStaff)
+                .sorted((a, b) -> b.getId().compareTo(a.getId()))
+                .map(PostResponse::from)
+                .toList();
     }
 
     /**

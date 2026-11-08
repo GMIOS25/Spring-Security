@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="admin-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="50%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </linearGradient>
+    <filter id="admin-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+  </defs>
+
+  <circle cx="100" cy="100" r="98" fill="url(#admin-bg)"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <g transform="translate(100, 105)" filter="url(#admin-shadow)">
+    <!-- Neck & Executive Suit -->
+    <path d="M-13,24 L13,24 L15,40 L-15,40 Z" fill="#ffedd5"/>
+    <path d="M-44,65 C-42,34 -22,28 0,28 C22,28 42,34 44,65 Z" fill="#0f172a"/>
+    <!-- Crisp White Shirt & Gold Tie -->
+    <path d="M-14,28 L0,50 L14,28" fill="#ffffff"/>
+    <polygon points="-4,32 4,32 5,58 0,65 -5,58" fill="#f59e0b"/>
+
+    <!-- Head & Face -->
+    <ellipse cx="0" cy="-6" rx="27" ry="31" fill="#ffedd5"/>
+
+    <!-- Sharp Modern Side-Part Hair -->
+    <path d="M-28,-18 C-26,-46 -2,-48 4,-48 C24,-48 29,-42 28,-16 C22,-30 8,-36 0,-36 C-14,-36 -24,-30 -28,-18 Z" fill="#1c1917"/>
+
+    <!-- Executive Glasses -->
+    <rect x="-21" y="-13" width="17" height="12" rx="3" fill="none" stroke="#f59e0b" stroke-width="2.5"/>
+    <rect x="4" y="-13" width="17" height="12" rx="3" fill="none" stroke="#f59e0b" stroke-width="2.5"/>
+    <line x1="-4" y1="-7" x2="4" y2="-7" stroke="#f59e0b" stroke-width="2.5"/>
+
+    <!-- Eyes -->
+    <circle cx="-12.5" cy="-7" r="2.8" fill="#1c1917"/>
+    <circle cx="-11.5" cy="-8" r="1" fill="#ffffff"/>
+    <circle cx="12.5" cy="-7" r="2.8" fill="#1c1917"/>
+    <circle cx="13.5" cy="-8" r="1" fill="#ffffff"/>
+
+    <!-- Confident Smile & Trimmed Beard Line -->
+    <path d="M-5,11 Q0,17 5,11" fill="none" stroke="#78350f" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M-14,7 C-10,19 10,19 14,7" fill="none" stroke="#1c1917" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+  </g>
+</svg>

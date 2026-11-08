@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -21,6 +22,17 @@ public class PostController {
         this.postService = postService;
     }
 
+    @GetMapping
+    public ResponseEntity<List<PostResponse>> getFeed(Authentication authentication) {
+        String username = (authentication != null) ? authentication.getName() : null;
+        boolean isStaff = authentication != null && authentication.getAuthorities().stream().anyMatch(a ->
+                "POST_DELETE_ANY".equals(a.getAuthority()) ||
+                "ROLE_MODERATOR".equals(a.getAuthority()) ||
+                "ROLE_ADMIN".equals(a.getAuthority()));
+        List<PostResponse> posts = postService.getVisiblePosts(username, isStaff);
+        return ResponseEntity.ok(posts);
+    }
+
     @PostMapping
     public ResponseEntity<PostResponse> createPost(
             @RequestBody(required = false) CreatePostRequest request,
@@ -28,7 +40,7 @@ public class PostController {
         String username = (authentication != null) ? authentication.getName() : "alice";
         CreatePostRequest effective = (request != null && request.caption() != null && !request.caption().isBlank())
                 ? request
-                : new CreatePostRequest("Default post caption", "https://images.instaclone.local/default.jpg", Post.PostVisibility.PUBLIC);
+                : new CreatePostRequest("Default post caption", "/images/posts/default.svg", Post.PostVisibility.PUBLIC);
         PostResponse response = postService.createPost(effective, username);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

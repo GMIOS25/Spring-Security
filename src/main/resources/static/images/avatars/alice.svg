@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="alice-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff007a"/>
+      <stop offset="50%" stop-color="#e11d48"/>
+      <stop offset="100%" stop-color="#7928ca"/>
+    </linearGradient>
+    <linearGradient id="alice-hair" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b0764"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <filter id="alice-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+  </defs>
+
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="98" fill="url(#alice-bg)"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <!-- Character Group -->
+  <g transform="translate(100, 105)" filter="url(#alice-shadow)">
+    <!-- Back Hair Volume -->
+    <path d="M-42,-10 C-44,-55 44,-55 42,-10 C42,20 34,42 28,55 L-28,55 C-34,42 -42,20 -42,-10 Z" fill="url(#alice-hair)"/>
+
+    <!-- Neck & Shoulders -->
+    <path d="M-14,24 L14,24 L16,42 L-16,42 Z" fill="#fed7aa"/>
+    <path d="M-44,65 C-42,38 -24,32 0,32 C24,32 42,38 44,65 Z" fill="#ffffff"/>
+    <!-- Collar Detail -->
+    <path d="M-16,32 L0,48 L16,32" fill="#fb7185"/>
+
+    <!-- Head & Face -->
+    <ellipse cx="0" cy="-6" rx="28" ry="32" fill="#fed7aa"/>
+
+    <!-- Front Bangs / Hair -->
+    <path d="M-30,-14 C-28,-40 -12,-44 0,-44 C12,-44 28,-40 30,-14 C32,2 24,10 24,10 C24,10 16,-24 0,-24 C-16,-24 -24,10 -24,10 C-24,10 -32,2 -30,-14 Z" fill="url(#alice-hair)"/>
+
+    <!-- Stylish Round Glasses -->
+    <circle cx="-11" cy="-6" r="9.5" fill="none" stroke="#e11d48" stroke-width="2.5"/>
+    <circle cx="11" cy="-6" r="9.5" fill="none" stroke="#e11d48" stroke-width="2.5"/>
+    <line x1="-1.5" y1="-6" x2="1.5" y2="-6" stroke="#e11d48" stroke-width="2.5"/>
+
+    <!-- Eyes (inside glasses) -->
+    <circle cx="-11" cy="-6" r="3" fill="#1e1b4b"/>
+    <circle cx="-10" cy="-7" r="1" fill="#ffffff"/>
+    <circle cx="11" cy="-6" r="3" fill="#1e1b4b"/>
+    <circle cx="12" cy="-7" r="1" fill="#ffffff"/>
+
+    <!-- Rosy Cheeks -->
+    <circle cx="-18" cy="4" r="4.5" fill="#f43f5e" opacity="0.4"/>
+    <circle cx="18" cy="4" r="4.5" fill="#f43f5e" opacity="0.4"/>
+
+    <!-- Smile -->
+    <path d="M-6,11 Q0,17 6,11" fill="none" stroke="#9a3412" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+</svg>

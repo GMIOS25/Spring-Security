@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bob-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="50%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="bob-hoodie" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <filter id="bob-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+  </defs>
+
+  <circle cx="100" cy="100" r="98" fill="url(#bob-bg)"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <g transform="translate(100, 105)" filter="url(#bob-shadow)">
+    <!-- Neck & Shoulders (Hoodie) -->
+    <path d="M-12,24 L12,24 L14,40 L-14,40 Z" fill="#fde047"/>
+    <path d="M-44,65 C-42,36 -22,30 0,30 C22,30 42,36 44,65 Z" fill="url(#bob-hoodie)"/>
+    <path d="M-10,30 L0,48 L10,30" fill="#38bdf8"/>
+
+    <!-- Head & Face -->
+    <ellipse cx="0" cy="-6" rx="27" ry="31" fill="#fde047"/>
+
+    <!-- Haircut -->
+    <path d="M-27,-18 C-25,-44 0,-46 2,-46 C20,-46 27,-42 27,-18 C23,-30 10,-35 0,-35 C-14,-35 -23,-28 -27,-18 Z" fill="#0f172a"/>
+
+    <!-- Over-ear Tech Headphones Band -->
+    <path d="M-29,-8 C-31,-34 31,-34 29,-8" fill="none" stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round"/>
+    <!-- Headphone Ear Cups -->
+    <rect x="-35" y="-14" width="8" height="18" rx="4" fill="#0284c7"/>
+    <rect x="27" y="-14" width="8" height="18" rx="4" fill="#0284c7"/>
+
+    <!-- Glasses -->
+    <rect x="-21" y="-13" width="17" height="13" rx="3.5" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+    <rect x="4" y="-13" width="17" height="13" rx="3.5" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+    <line x1="-4" y1="-7" x2="4" y2="-7" stroke="#38bdf8" stroke-width="2.5"/>
+
+    <!-- Eyes -->
+    <circle cx="-12" cy="-6.5" r="2.8" fill="#0f172a"/>
+    <circle cx="-11" cy="-7.5" r="1" fill="#ffffff"/>
+    <circle cx="12" cy="-6.5" r="2.8" fill="#0f172a"/>
+    <circle cx="13" cy="-7.5" r="1" fill="#ffffff"/>
+
+    <!-- Smile & Stubble -->
+    <path d="M-5,10 Q0,16 5,10" fill="none" stroke="#713f12" stroke-width="2" stroke-linecap="round"/>
+    <path d="M-12,8 C-8,19 8,19 12,8" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  </g>
+</svg>

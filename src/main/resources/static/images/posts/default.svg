@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <linearGradient id="pdef-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#311042"/>
+    </linearGradient>
+    <linearGradient id="pdef-orb1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e"/>
+      <stop offset="100%" stop-color="#fb923c"/>
+    </linearGradient>
+    <linearGradient id="pdef-orb2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="pdef-orb3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+    <filter id="pdef-blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="30"/>
+    </filter>
+  </defs>
+
+  <rect width="600" height="600" fill="url(#pdef-bg)"/>
+
+  <!-- Glowing Fluid Orbs -->
+  <circle cx="200" cy="220" r="130" fill="url(#pdef-orb1)" opacity="0.65" filter="url(#pdef-blur)"/>
+  <circle cx="420" cy="360" r="150" fill="url(#pdef-orb2)" opacity="0.6" filter="url(#pdef-blur)"/>
+  <circle cx="300" cy="450" r="110" fill="url(#pdef-orb3)" opacity="0.5" filter="url(#pdef-blur)"/>
+
+  <!-- Centered Glassmorphic Floating Card -->
+  <g transform="translate(150, 150)">
+    <rect width="300" height="300" rx="32" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="2"/>
+    <!-- Inner Rings -->
+    <circle cx="150" cy="150" r="85" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <circle cx="150" cy="150" r="50" fill="none" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2"/>
+    <circle cx="150" cy="150" r="16" fill="#f43f5e"/>
+
+    <!-- Subtle Brand Mark -->
+    <text x="150" y="255" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" letter-spacing="2">INSTACLONE</text>
+  </g>
+</svg>

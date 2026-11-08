@@ -15,7 +15,7 @@ public class PublicFeedController {
     @GetMapping("/explore")
     public ResponseEntity<List<Map<String, Object>>> explore() {
         return ResponseEntity.ok(List.of(
-            Map.of("id", 1, "caption", "Welcome to InstaClone!", "imageUrl", "https://img.instaclone.com/1.jpg")
+            Map.of("id", 1, "caption", "Welcome to InstaClone!", "imageUrl", "/images/posts/p1.svg")
         ));
     }
 }

@@ -248,7 +248,7 @@ public class SecurityChainsConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/csrf/token").permitAll()
-                .requestMatchers("/ott/generate", "/login/ott/**", "/oauth2/**").permitAll()
+                .requestMatchers("/ott/generate", "/login/ott/**", "/oauth2/**", "/ott/latest").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/users/me").access(
                     AllRequiredFactorsAuthorizationManager.<RequestAuthorizationContext>builder()
                         .requireFactor(f -> f.passwordAuthority())
@@ -256,8 +256,17 @@ public class SecurityChainsConfig {
                         .build()
                 )
                 .requestMatchers("/api/v1/moderation/**").hasAnyRole("MODERATOR", "ADMIN")
-                .requestMatchers("/api/v1/posts/**").authenticated()
+                .requestMatchers("/api/v1/posts", "/api/v1/posts/**").authenticated()
                 .requestMatchers("/uploads/**").authenticated()
+                .requestMatchers(
+                    "/",
+                    "/index.html",
+                    "/css/**",
+                    "/js/**",
+                    "/assets/**",
+                    "/images/**",
+                    "/favicon.ico"
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex

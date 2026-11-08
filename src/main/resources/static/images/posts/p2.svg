@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <!-- Room Ambient Dark Gradient -->
+    <linearGradient id="p2-room" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="60%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <!-- Monitor Screen Glow -->
+    <linearGradient id="p2-screen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="50%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="p2-lamp-glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="p2-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Wall -->
+  <rect width="600" height="600" fill="url(#p2-room)"/>
+
+  <!-- Shelf on Wall with Books & Art -->
+  <rect x="60" y="100" width="480" height="12" rx="3" fill="#334155"/>
+  <!-- Books -->
+  <rect x="100" y="55" width="14" height="45" rx="2" fill="#e11d48"/>
+  <rect x="116" y="50" width="16" height="50" rx="2" fill="#38bdf8"/>
+  <rect x="134" y="60" width="12" height="40" rx="2" fill="#fbbf24"/>
+  <!-- Small Shelf Plant -->
+  <rect x="420" y="75" width="26" height="25" rx="3" fill="#cbd5e1"/>
+  <ellipse cx="433" cy="72" rx="16" ry="12" fill="#10b981"/>
+
+  <!-- Warm Desk Lamp Light Cone -->
+  <polygon points="500,200 360,460 580,460" fill="url(#p2-lamp-glow)"/>
+
+  <!-- Desk Surface (Dark Solid Wood) -->
+  <polygon points="0,450 600,450 600,600 0,600" fill="#18181b"/>
+  <line x1="0" y1="450" x2="600" y2="450" stroke="#27272a" stroke-width="3"/>
+
+  <!-- Ultrawide Curved Monitor Glow -->
+  <rect x="90" y="190" width="420" height="220" rx="14" fill="#6366f1" opacity="0.15" filter="url(#p2-glow)"/>
+
+  <!-- Ultrawide Curved Monitor Body -->
+  <rect x="95" y="195" width="410" height="210" rx="12" fill="#020617" stroke="#334155" stroke-width="4"/>
+  <!-- Screen Content: Code Editor Dark Theme -->
+  <rect x="105" y="205" width="390" height="190" rx="6" fill="#0b0f19"/>
+  <!-- Editor Top Tab Bar -->
+  <rect x="105" y="205" width="390" height="22" fill="#111827"/>
+  <circle cx="118" cy="216" r="3.5" fill="#ef4444"/>
+  <circle cx="128" cy="216" r="3.5" fill="#f59e0b"/>
+  <circle cx="138" cy="216" r="3.5" fill="#10b981"/>
+  <rect x="155" y="209" width="90" height="15" rx="3" fill="#1f2937"/>
+  <text x="165" y="220" fill="#94a3b8" font-family="monospace" font-size="8">SecurityConfig.java</text>
+
+  <!-- Code Syntax Lines -->
+  <g opacity="0.9">
+    <rect x="120" y="240" width="60" height="6" rx="2" fill="#c084fc"/>
+    <rect x="185" y="240" width="90" height="6" rx="2" fill="#38bdf8"/>
+    <rect x="135" y="255" width="80" height="6" rx="2" fill="#f43f5e"/>
+    <rect x="220" y="255" width="120" height="6" rx="2" fill="#a78bfa"/>
+    <rect x="150" y="270" width="100" height="6" rx="2" fill="#34d399"/>
+    <rect x="255" y="270" width="70" height="6" rx="2" fill="#cbd5e1"/>
+    <rect x="150" y="285" width="140" height="6" rx="2" fill="#38bdf8"/>
+    <rect x="135" y="300" width="40" height="6" rx="2" fill="#c084fc"/>
+    <rect x="120" y="315" width="70" height="6" rx="2" fill="#fb7185"/>
+    <rect x="195" y="315" width="110" height="6" rx="2" fill="#38bdf8"/>
+    <rect x="135" y="330" width="160" height="6" rx="2" fill="#cbd5e1"/>
+    <rect x="135" y="345" width="90" height="6" rx="2" fill="#a78bfa"/>
+    <rect x="120" y="360" width="30" height="6" rx="2" fill="#c084fc"/>
+  </g>
+
+  <!-- Monitor Stand -->
+  <path d="M285,405 L315,405 L325,455 L275,455 Z" fill="#475569"/>
+  <ellipse cx="300" cy="455" rx="55" ry="7" fill="#334155"/>
+
+  <!-- Mechanical Keyboard -->
+  <g transform="translate(190, 485)">
+    <rect width="220" height="55" rx="6" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+    <!-- RGB Glow Under Keys -->
+    <rect x="8" y="8" width="204" height="39" rx="4" fill="#0f172a"/>
+    <!-- Key Rows -->
+    <line x1="12" y1="18" x2="208" y2="18" stroke="#38bdf8" stroke-width="4" stroke-dasharray="8 3" opacity="0.8"/>
+    <line x1="12" y1="28" x2="208" y2="28" stroke="#a855f7" stroke-width="4" stroke-dasharray="8 3" opacity="0.8"/>
+    <line x1="12" y1="38" x2="208" y2="38" stroke="#ec4899" stroke-width="4" stroke-dasharray="8 3" opacity="0.8"/>
+  </g>
+
+  <!-- Mouse & Desk Mat -->
+  <rect x="445" y="495" width="26" height="40" rx="13" fill="#334155" stroke="#475569" stroke-width="1.5"/>
+  <line x1="458" y1="498" x2="458" y2="512" stroke="#64748b" stroke-width="1.5"/>
+
+  <!-- Ceramic Coffee Mug with Latte Art -->
+  <g transform="translate(100, 480)">
+    <ellipse cx="26" cy="12" rx="20" ry="12" fill="#cbd5e1"/>
+    <rect x="6" y="12" width="40" height="40" rx="4" fill="#cbd5e1"/>
+    <ellipse cx="26" cy="52" rx="20" ry="8" fill="#94a3b8"/>
+    <ellipse cx="26" cy="12" rx="17" ry="9" fill="#78350f"/>
+    <!-- Coffee Foam Heart -->
+    <path d="M26,16 C22,12 18,14 20,10 C22,6 26,9 26,9 C26,9 30,6 32,10 C34,14 30,12 26,16 Z" fill="#fef3c7"/>
+    <!-- Mug Handle -->
+    <path d="M6,20 C-6,20 -6,38 6,38" fill="none" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round"/>
+    <!-- Gentle Steam -->
+    <path d="M22,2 Q26,-10 20,-20" stroke="#fef3c7" stroke-width="2" fill="none" opacity="0.4" stroke-linecap="round"/>
+    <path d="M30,0 Q34,-12 28,-24" stroke="#fef3c7" stroke-width="2" fill="none" opacity="0.3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Desk Lamp -->
+  <g transform="translate(500, 310)">
+    <path d="M30,140 L30,40 L-25,-30" fill="none" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
+    <!-- Lamp Shade -->
+    <polygon points="-40,-55 -6,-25 -38,-5" fill="#f59e0b"/>
+    <ellipse cx="30" cy="140" rx="24" ry="8" fill="#475569"/>
+  </g>
+
+  <!-- Photo Location Badge -->
+  <g transform="translate(450, 550)">
+    <rect width="125" height="32" rx="16" fill="rgba(15, 23, 42, 0.75)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+    <circle cx="20" cy="16" r="4" fill="#38bdf8"/>
+    <text x="68" y="21" text-anchor="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" letter-spacing="0.5">DEV WORKSPACE</text>
+  </g>
+</svg>

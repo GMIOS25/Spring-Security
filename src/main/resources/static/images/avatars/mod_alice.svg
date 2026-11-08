@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="mod-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+    <filter id="mod-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.25)"/>
+    </filter>
+  </defs>
+
+  <circle cx="100" cy="100" r="98" fill="url(#mod-bg)"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <g transform="translate(100, 105)" filter="url(#mod-shadow)">
+    <!-- Back Hair -->
+    <path d="M-40,-8 C-42,-50 42,-50 40,-8 C40,22 32,46 26,58 L-26,58 C-32,46 -40,22 -40,-8 Z" fill="#064e3b"/>
+
+    <!-- Neck & Blazer -->
+    <path d="M-13,24 L13,24 L15,40 L-15,40 Z" fill="#fef3c7"/>
+    <path d="M-44,65 C-42,36 -22,30 0,30 C22,30 42,36 44,65 Z" fill="#0f172a"/>
+    <path d="M-15,30 L0,48 L15,30" fill="#34d399"/>
+
+    <!-- Gold Shield Lapel Pin -->
+    <path d="M22,46 L27,43 L32,46 L32,52 C32,56 27,60 27,60 C27,60 22,56 22,52 Z" fill="#fbbf24" stroke="#d97706" stroke-width="1"/>
+
+    <!-- Head & Face -->
+    <ellipse cx="0" cy="-6" rx="27" ry="31" fill="#fef3c7"/>
+
+    <!-- Sleek Front Hair -->
+    <path d="M-29,-16 C-27,-42 -10,-46 0,-46 C12,-46 27,-42 29,-16 C31,2 23,10 23,10 C23,10 15,-24 0,-24 C-15,-24 -23,10 -23,10 C-23,10 -31,2 -29,-16 Z" fill="#064e3b"/>
+
+    <!-- Modern Thin Glasses -->
+    <circle cx="-11" cy="-6" r="9.5" fill="none" stroke="#10b981" stroke-width="2.5"/>
+    <circle cx="11" cy="-6" r="9.5" fill="none" stroke="#10b981" stroke-width="2.5"/>
+    <line x1="-1.5" y1="-6" x2="1.5" y2="-6" stroke="#10b981" stroke-width="2.5"/>
+
+    <!-- Eyes -->
+    <circle cx="-11" cy="-6" r="2.8" fill="#064e3b"/>
+    <circle cx="-10" cy="-7" r="1" fill="#ffffff"/>
+    <circle cx="11" cy="-6" r="2.8" fill="#064e3b"/>
+    <circle cx="12" cy="-7" r="1" fill="#ffffff"/>
+
+    <!-- Cheeks & Smile -->
+    <circle cx="-17" cy="4" r="4" fill="#f87171" opacity="0.4"/>
+    <circle cx="17" cy="4" r="4" fill="#f87171" opacity="0.4"/>
+    <path d="M-5,11 Q0,16 5,11" fill="none" stroke="#9a3412" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+</svg>
